@@ -13,6 +13,10 @@ namespace Assets.InternalApis.Implementations
     public class UserController : IUserController
     {
 
+        // The wulfram.com:1337 socket.io backend this class talks to is offline (see revival roadmap).
+        // Flip to false once a replacement login/stats backend is deployed and configured.
+        public static bool OfflineMode = true;
+
         private Socket socketServer;
         public UserController()
         {
@@ -20,7 +24,10 @@ namespace Assets.InternalApis.Implementations
             //player.Username = GetUsername();
 
             Debug.Log("UserController constructor:" + player.userName);
-            SetupSocketConnection();
+            if (!OfflineMode)
+            {
+                SetupSocketConnection();
+            }
             var tmp = Loom.Current;
         }
 
@@ -40,11 +47,29 @@ namespace Assets.InternalApis.Implementations
 
         public void LoginUser(string username, string password)
         {
+            if (OfflineMode)
+            {
+                var guestName = PlayerPrefs.HasKey("PlayerName")
+                    ? PlayerPrefs.GetString("PlayerName")
+                    : "GuestUser#" + new System.Random().Next(1, 9000);
+
+                this.player = new WulframPlayer { userName = guestName, type = "Guest", scores = new PlayerScores() };
+                PhotonNetwork.playerName = guestName;
+                LoginCompleted?.Invoke(player, "Login Complete (offline)");
+                return;
+            }
+
             socketServer.EmitJson("login", JsonConvert.SerializeObject(new { username = username, password  = password }));
         }
 
         public void RegisterUser(string username, string password, string email)
         {
+            if (OfflineMode)
+            {
+                RegisterUserCompleted?.Invoke("Registration is unavailable in offline mode.");
+                return;
+            }
+
             socketServer.EmitJson("registerNewUser", JsonConvert.SerializeObject(new { userName = username, password = password, email = email }));
         }
 
@@ -78,7 +103,7 @@ namespace Assets.InternalApis.Implementations
             Debug.Log("defaultName:" + defaultName);
 
             var userString = this.player.userName;
-            if (userString != "null")
+            if (!string.IsNullOrEmpty(userString))
             {
                 // Auth'ed User
                 switch (this.player.type)
@@ -270,6 +295,7 @@ namespace Assets.InternalApis.Implementations
 
         private void UpdatePlayer()
         {
+            if (OfflineMode) return;
             socketServer.EmitJson("updatePlayer", JsonConvert.SerializeObject(this.player));
         }
     }
