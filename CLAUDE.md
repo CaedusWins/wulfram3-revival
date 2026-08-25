@@ -23,9 +23,18 @@ Two unrelated things share the name "Wulfram" — don't conflate them:
 
 - **`master`** = prod. Stable, deployable, currently untouched at the original `21f284f` ("fixed size of gui", Jan 2018). Nothing merges here without explicit sign-off.
 - **`dev`** = integration/testing. Currently just mirrors `master` — nothing merged in yet, waiting on M1 (see below) before the feature branch merges in.
-- **`revival/phase-0-1-bringup`** = active feature branch, pushed to origin. All current work happens here.
+- **`revival/phase-0-1-bringup`** = active integration branch for the revival effort, pushed to origin. Feature branches (below) merge back into this one; this is what eventually merges into `dev`.
 
 **Working style:** create branches/commit/edit files locally without asking each time. Confirm before pushing to GitHub or merging into `dev`/`master` — but push feature-branch work at reasonable checkpoints (not after every micro-edit) since "publish as we go" has been explicitly requested.
+
+### Feature branches (created off `revival/phase-0-1-bringup`, local only — not yet pushed)
+
+One branch per outstanding work item from "What's Still Broken" below, so each can be picked up and merged independently instead of piling everything onto one branch:
+
+- **`feature/m1-scene-build-settings`** — the M1 blocker: fix `EditorBuildSettings.asset` (add `Playground.unity`, drop the vendored MHLab `Launcher.unity` demo scene, resolve duplicate `Launcher.unity` vs `Launcher 1.unity`). Must be done inside a real Unity 2017.3.0f3 editor, not by hand-editing the binary asset.
+- **`feature/m2-photon-pun2-migration`** — replace the dead Photon AWS endpoint/App ID with a fresh Photon Cloud app, migrate PUN Classic → PUN2 via Photon's official converter tool.
+- **`feature/accountless-quickplay`** — ship an accountless "quick play" mode as the long-term answer to the dead `wulfram.com:1337` backend (current leaning per the "No real account/stats backend" note below), rather than building a replacement backend.
+- **`feature/git-history-cleanup`** — rewrite history to drop the ~2.5GB of committed `windows/` build binaries and old WebGL builds. Deferred/low priority per the decision below; branch exists so the work is scoped whenever it's picked up.
 
 ## Decisions Already Made (don't re-litigate these without new information)
 
