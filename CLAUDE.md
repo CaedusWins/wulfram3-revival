@@ -9,7 +9,7 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `REVIVAL.md` — human-readable narrative/timeline of the revival effort. Read this for the story; read this file for the facts.
 - `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
 
-**Immediate next action:** install Unity `2017.3.0f3` (Unity Hub → Installs → Archive), open this project for the first time, then work `feature/m1-scene-build-settings`. Nothing else is unblocked until that happens.
+**Immediate next action:** install Unity `2017.3.0f3` (Unity Hub → Installs → Archive), open this project for the first time, then work `feature/m1-scene-build-settings`. Nothing else is unblocked until that happens. **Note:** an attempt to install it unattended via Unity Hub's `--headless` CLI failed in this environment — the flags fell through to generic Electron/Node dispatch instead of Unity Hub's own CLI handler (e.g. `--version` alone printed Electron's bundled Node version, not Unity Hub's). Don't re-attempt that path without a new idea; do it manually via the Unity Hub GUI.
 
 ## What This Project Is
 
@@ -34,7 +34,7 @@ Two unrelated things share the name "Wulfram" — don't conflate them:
 
 **Working style:** create branches/commit/edit files locally without asking each time. Confirm before pushing to GitHub or merging into `dev`/`master` — but push feature-branch work at reasonable checkpoints (not after every micro-edit) since "publish as we go" has been explicitly requested.
 
-### Feature branches (created off `revival/phase-0-1-bringup`, local only — not yet pushed)
+### Feature branches (created off `revival/phase-0-1-bringup`, pushed to origin)
 
 One branch per outstanding work item from "What's Still Broken" below, so each can be picked up and merged independently instead of piling everything onto one branch:
 
