@@ -4,6 +4,13 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 
 **Companion document:** a designed, visual version of the roadmap/runway lives at https://claude.ai/code/artifact/3b6df1dc-d101-4071-9489-7efd2750ba1a — nice for a human to read, but this file is the source of truth for resuming work.
 
+**Doc map:** three files, three jobs — don't blend them.
+- `CLAUDE.md` (this file) — dense, technical, AI-resume source of truth. Decisions, blockers, exact paths.
+- `REVIVAL.md` — human-readable narrative/timeline of the revival effort. Read this for the story; read this file for the facts.
+- `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
+
+**Immediate next action:** install Unity `2017.3.0f3` (Unity Hub → Installs → Archive), open this project for the first time, then work `feature/m1-scene-build-settings`. Nothing else is unblocked until that happens.
+
 ## What This Project Is
 
 Two unrelated things share the name "Wulfram" — don't conflate them:
@@ -35,6 +42,23 @@ One branch per outstanding work item from "What's Still Broken" below, so each c
 - **`feature/m2-photon-pun2-migration`** — replace the dead Photon AWS endpoint/App ID with a fresh Photon Cloud app, migrate PUN Classic → PUN2 via Photon's official converter tool.
 - **`feature/accountless-quickplay`** — ship an accountless "quick play" mode as the long-term answer to the dead `wulfram.com:1337` backend (current leaning per the "No real account/stats backend" note below), rather than building a replacement backend.
 - **`feature/git-history-cleanup`** — rewrite history to drop the ~2.5GB of committed `windows/` build binaries and old WebGL builds. Deferred/low priority per the decision below; branch exists so the work is scoped whenever it's picked up.
+
+**Isolation caveat — read before working two branches "at once":** these branches isolate *history* from each other (commits on one don't touch another until merged), but a single working directory can only have one branch checked out at a time — checking out a branch overwrites the working tree with that branch's files. That's a real problem specifically for `feature/m1-scene-build-settings`, because it requires the Unity Editor to have the project open, and Unity regenerates its `Library/` cache on every branch switch (slow, and occasionally flaky). If you want to genuinely work M1 in the Unity Editor while also editing code for another feature branch at the same time, use `git worktree add ../wulfram3-m1 feature/m1-scene-build-settings` (and similarly for others) to get separate working directories on the same repo/history instead of switching branches in place. Not set up yet — ask if you want it.
+
+## Local Environment
+
+- **OS:** Windows 11. Repo lives at `c:\Development\Wulfram_Development\wulfram3`.
+- **Unity:** Unity Hub installed at `C:\Program Files\Unity Hub`; only editor version currently installed is `6000.1.6f1` (`C:\Program Files\Unity\Hub\Editor\6000.1.6f1`) — **not** the `2017.3.0f3` this project needs. Must be installed via Unity Hub → Installs → Archive before M1 can start.
+- **Git identity:** Thomas J. Purdy Jr. (`caedus420@gmail.com`).
+- **Remote:** `origin` → `https://github.com/CaedusWins/wulfram3.git` (fetch and push).
+- **`WULFRAM_DISCORD_WEBHOOK_URL`:** referenced by `DiscordApi.cs` (see "What's Already Fixed" below); whether it's set in this machine's environment hasn't been verified this session — check before relying on Discord integration working locally.
+
+## Session Transcript Locations (fallback only)
+
+This file is the intended resume mechanism and should be sufficient on its own. If something is ever missing from it, the raw conversation history is preserved locally and can be searched or replayed:
+- Transcripts: `C:\Users\Caedu\.claude\projects\c--Development-Wulfram-Development\*.jsonl` (one file per past session, newest reflect the most recent work).
+- Full replay: `claude --resume <session-id>` run from this repo's directory.
+- As of 2026-08-25, three sessions exist there, spanning 2026-08-19 through 2026-08-25 — covering the fork/branch setup, the offline-bringup fix, the `CLAUDE.md` creation, and the feature-branch scaffolding documented above.
 
 ## Decisions Already Made (don't re-litigate these without new information)
 
