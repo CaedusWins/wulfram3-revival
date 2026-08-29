@@ -74,6 +74,76 @@ namespace Wulfram.EditorTools
             Debug.Log("WulframFixMissingScripts: AddCargoComponents done - Cargo attached: " + cargoFixed);
         }
 
+        // Phase 2, one-object-per-process variant: the batched version (all 17
+        // in one process, one -executeMethod call) only reliably persisted a
+        // subset (1 of 17, then 8 of 17 after adding dirty-marking - see
+        // CLAUDE.md for the full story). Doing exactly one object per fresh
+        // Unity process sidesteps whatever that in-process batching issue is,
+        // since each process does the minimum possible work before saving.
+        //
+        // Target object name comes from a custom CLI arg:
+        //   -executeMethod Wulfram.EditorTools.WulframFixMissingScripts.AddCargoToOne -cargoTarget "Cargo (5)"
+        public static void AddCargoToOne()
+        {
+            string target = null;
+            string[] args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i] == "-cargoTarget")
+                {
+                    target = args[i + 1];
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(target))
+            {
+                Debug.LogError("WulframFixMissingScripts: AddCargoToOne - no -cargoTarget argument given");
+                return;
+            }
+
+            // NOTE: an earlier version of this method called
+            // AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate)
+            // here, on the theory that stale AssetDatabase caching between rapid
+            // process launches explained why only some objects' changes
+            // persisted. It didn't fix that, and in one run appeared to actively
+            // REGRESS previously-successful fixes on other objects (missing-script
+            // count went from 7 back up to 12 after a retry round that used this).
+            // Deliberately removed - do not re-add without new evidence, and treat
+            // this whole one-process-per-object approach as unreliable for this
+            // task. See CLAUDE.md for the full account and the decision to finish
+            // the remaining objects by hand in the Unity GUI instead.
+            Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/Playground.unity", OpenSceneMode.Single);
+            GameObject[] roots = scene.GetRootGameObjects();
+            GameObject found = null;
+            for (int i = 0; i < roots.Length; i++)
+            {
+                if (roots[i].name == target)
+                {
+                    found = roots[i];
+                    break;
+                }
+            }
+
+            if (found == null)
+            {
+                Debug.LogError("WulframFixMissingScripts: AddCargoToOne - no root object named '" + target + "' found");
+                return;
+            }
+
+            if (found.GetComponent<Com.Wulfram3.Cargo>() != null)
+            {
+                Debug.Log("WulframFixMissingScripts: AddCargoToOne - '" + target + "' already has Cargo, skipping");
+                return;
+            }
+
+            found.AddComponent<Com.Wulfram3.Cargo>();
+            EditorUtility.SetDirty(found);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("WulframFixMissingScripts: AddCargoToOne - attached Cargo to '" + target + "'");
+        }
+
         private static int RemoveRecursive(GameObject go, string hierarchyPath)
         {
             int count = 0;
