@@ -109,6 +109,12 @@ namespace Wulfram.EditorTools
             if (go.name.ToLower().Contains("cargo") && go.GetComponent<Com.Wulfram3.Cargo>() == null)
             {
                 go.AddComponent<Com.Wulfram3.Cargo>();
+                // Same lesson as RemoveMissingScripts: a native mutation in this
+                // batch-mode/-executeMethod context (no normal Editor update loop
+                // pumping between calls) needs an explicit dirty mark or
+                // EditorSceneManager.SaveScene silently drops it for most objects.
+                EditorUtility.SetDirty(go);
+                EditorSceneManager.MarkSceneDirty(go.scene);
                 count = 1;
                 Debug.Log("WulframFixMissingScripts: attached Cargo to " + hierarchyPath);
             }

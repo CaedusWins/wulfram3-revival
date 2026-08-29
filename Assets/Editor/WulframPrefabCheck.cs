@@ -21,7 +21,14 @@ namespace Wulfram.EditorTools
                 if (go.name.ToLower().Contains("cargo"))
                 {
                     PrefabType type = PrefabUtility.GetPrefabType(go);
-                    Debug.Log("WulframPrefabCheck: " + go.name + " -> PrefabType=" + type);
+                    bool hasMissing = false;
+                    Component[] comps = go.GetComponents<Component>();
+                    for (int c = 0; c < comps.Length; c++)
+                    {
+                        if (comps[c] == null) { hasMissing = true; break; }
+                    }
+                    Debug.Log("WulframPrefabCheck: " + go.name + " -> PrefabType=" + type +
+                        " components=" + comps.Length + " hasMissing=" + hasMissing);
                 }
             }
         }

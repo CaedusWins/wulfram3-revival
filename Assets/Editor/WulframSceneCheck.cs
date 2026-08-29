@@ -52,6 +52,17 @@ namespace Wulfram.EditorTools
             Debug.Log("WulframSceneCheck: done");
         }
 
+        public static void CountCargoComponents()
+        {
+            EditorSceneManager.OpenScene("Assets/Scenes/Playground.unity", OpenSceneMode.Single);
+            Com.Wulfram3.Cargo[] all = Object.FindObjectsOfType<Com.Wulfram3.Cargo>();
+            Debug.Log("WulframSceneCheck: total Cargo components in Playground.unity: " + all.Length);
+            for (int i = 0; i < all.Length; i++)
+            {
+                Debug.Log("WulframSceneCheck: Cargo component on " + all[i].gameObject.name);
+            }
+        }
+
         private static int ReportMissingScripts(GameObject go, string hierarchyPath)
         {
             int count = 0;
