@@ -9,7 +9,7 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `REVIVAL.md` — human-readable narrative/timeline of the revival effort. Read this for the story; read this file for the facts.
 - `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
 
-**Immediate next action:** install Unity `2017.3.0f3` (Unity Hub → Installs → Archive), open this project for the first time, then work `feature/m1-scene-build-settings`. Nothing else is unblocked until that happens. **Note:** an attempt to install it unattended via Unity Hub's `--headless` CLI failed in this environment — the flags fell through to generic Electron/Node dispatch instead of Unity Hub's own CLI handler (e.g. `--version` alone printed Electron's bundled Node version, not Unity Hub's). Don't re-attempt that path without a new idea; do it manually via the Unity Hub GUI.
+**Immediate next action:** open this project in Unity `2017.3.0f3` for the first time, then work `feature/m1-scene-build-settings`. Unity is now installed — see Local Environment below for the exact path and how it got there.
 
 ## What This Project Is
 
@@ -48,7 +48,10 @@ One branch per outstanding work item from "What's Still Broken" below, so each c
 ## Local Environment
 
 - **OS:** Windows 11. Repo lives at `c:\Development\Wulfram_Development\wulfram3`.
-- **Unity:** Unity Hub installed at `C:\Program Files\Unity Hub`; only editor version currently installed is `6000.1.6f1` (`C:\Program Files\Unity\Hub\Editor\6000.1.6f1`) — **not** the `2017.3.0f3` this project needs. Must be installed via Unity Hub → Installs → Archive before M1 can start.
+- **Unity:** two editors now present.
+  - `6000.1.6f1` — Hub-managed, at `C:\Program Files\Unity\Hub\Editor\6000.1.6f1`. Do not open this project with it — see the engine-fork decision above.
+  - `2017.3.0f3` — the one this project needs. Installed via a direct download from Unity's official CDN (`https://download.unity3d.com/download_unity/a9f86dcd79df/Windows64EditorInstaller/UnitySetup64-2017.3.0f3.exe`, changeset `a9f86dcd79df`) after Unity Hub's `--headless` CLI proved unworkable (see below). **It landed at `C:\Program Files\Unity\Editor\Unity.exe`, not the Hub-managed path** — an unquoted Windows path with spaces got mangled crossing from bash into the native NSIS installer, so it silently installed to its compiled-in default location instead of `Hub\Editor\2017.3.0f3`. It's fully functional (correct file sizes/dates for this version); Unity Hub's GUI just won't list it since it's outside Hub's managed folder convention. Launch it directly by path, or with `-projectPath` for CLI/batch-mode work, rather than through Hub.
+  - Unity Hub's `--headless install` CLI does not work in this environment — `--headless`/`--version` fall through to generic Electron/Node dispatch instead of Unity Hub's own CLI handler. Don't re-attempt it; use the direct-download approach above (Unity's public release API at `https://services.api.unity.com/unity/editor/release/v1/releases?version=<X>` returns the exact installer URL and changeset for any version) if another version is ever needed.
 - **Git identity:** Thomas J. Purdy Jr. (`caedus420@gmail.com`).
 - **Remote:** `origin` → `https://github.com/CaedusWins/wulfram3.git` (fetch and push).
 - **`WULFRAM_DISCORD_WEBHOOK_URL`:** referenced by `DiscordApi.cs` (see "What's Already Fixed" below); whether it's set in this machine's environment hasn't been verified this session — check before relying on Discord integration working locally.
@@ -69,7 +72,7 @@ This file is the intended resume mechanism and should be sufficient on its own. 
 ## Milestone Runway
 
 - **M0 — Repo Untangled: DONE.** Fork confirmed, branch model set up (master/dev/revival branch), all three pushed to GitHub.
-- **M1 — Opens & Compiles: NEXT, NOT DONE.** Nobody has opened this project in a real Unity Editor yet. Everything documented here is static analysis, not a confirmed compile. **Blocker:** only Unity `6000.1.6f1` is installed on the dev machine, not `2017.3.0f3`. Do NOT open this project in Unity 6 — that forces an unplanned, hard-to-reverse project upgrade attempt, which is exactly the engine decision we're deliberately deferring. Install Unity `2017.3.0f3` via Unity Hub → Installs → Archive first.
+- **M1 — Opens & Compiles: NEXT, NOT DONE.** Unity `2017.3.0f3` is now installed (see Local Environment) — the install blocker is cleared. Nobody has actually opened this project in it yet, though. Everything documented here is still static analysis, not a confirmed compile, until that first open/compile happens. Do NOT open this project in the Unity 6 install — that forces an unplanned, hard-to-reverse project upgrade attempt, which is exactly the engine decision we're deliberately deferring.
 - **M2 — First Local Match:** two Unity instances join the same Photon room, both spawn into `Playground`, damage lands both ways, all without `wulfram.com` or any external login server.
 - **M3 — Public Alpha:** real Photon backend, closed playtest, repo clean enough for a second contributor.
 - **M4 — Full Economy (optional):** SupplyShips, SkyPumps, PowerCells, UpLink. Only if the scope decision above is revisited.
