@@ -38,3 +38,4 @@ webgl/index.html
 .vs/wulfram3/v15/Server/sqlite3/storage.ide
 Assets/Models/Environment/Materials.meta
 Assets/Models/Environment/Materials.meta
+*.log
