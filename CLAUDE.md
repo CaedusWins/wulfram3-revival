@@ -54,6 +54,8 @@ One branch per outstanding work item from "What's Still Broken" below, so each c
   - Unity Hub's `--headless install` CLI does not work in this environment — `--headless`/`--version` fall through to generic Electron/Node dispatch instead of Unity Hub's own CLI handler. Don't re-attempt it; use the direct-download approach above (Unity's public release API at `https://services.api.unity.com/unity/editor/release/v1/releases?version=<X>` returns the exact installer URL and changeset for any version) if another version is ever needed.
 - **Git identity:** Thomas J. Purdy Jr. (`caedus420@gmail.com`).
 - **Remote:** `origin` → `https://github.com/CaedusWins/wulfram3.git` (fetch and push).
+- **`gh` CLI:** installed and already authenticated as `CaedusWins` with `repo` scope — usable for repo-settings changes (default branch, description, etc.), not just git push/pull.
+- **GitHub default branch:** changed from `master` to `revival/phase-0-1-bringup` (via `gh api -X PATCH repos/CaedusWins/wulfram3`), specifically so visiting the repo shows active work instead of the untouched original — landing on `master` by default made it look like nothing had happened. Repo description also updated to point at `REVIVAL.md`/`CLAUDE.md` and note `master` is the preserved original.
 - **`WULFRAM_DISCORD_WEBHOOK_URL`:** referenced by `DiscordApi.cs` (see "What's Already Fixed" below); whether it's set in this machine's environment hasn't been verified this session — check before relying on Discord integration working locally.
 
 ## Session Transcript Locations (fallback only)
