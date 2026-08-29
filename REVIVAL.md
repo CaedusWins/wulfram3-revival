@@ -19,9 +19,11 @@ Nothing has been opened in a real Unity Editor yet. That's the single next step.
 - **2026-08-29** — Unity `2017.3.0f3` successfully installed via a direct download from Unity's official CDN instead of Unity Hub's CLI. It landed at `C:\Program Files\Unity\Editor\Unity.exe` rather than the Hub-managed path (a shell quoting issue, not a Unity problem — see `CLAUDE.md`), but it's fully functional.
 - **2026-08-29 (same day)** — **M1 achieved.** Ran the project through Unity in batch mode on `feature/m1-scene-build-settings`. First attempt caught a real bug: the offline-mode fix used C# syntax (`?.`) two language versions newer than what this project's compiler supports. Fixed it, re-ran, and got a clean result — all 4 assemblies compile with zero errors. Also picked up a nice side effect: Unity auto-deleted ~35 long-orphaned `.meta` files for ghost folders, cleaning up disorganization noted all the way back in the original repo scan. This is the first genuinely verified (not just read-and-assumed) fact in the whole revival effort.
 
+- **2026-08-29 (same day, continued)** — Fixed `EditorBuildSettings.asset` via a custom editor script run through Unity's CLI. This surfaced a correction: the long-standing note that `Playground.unity` was "missing from Build Settings" turned out to be wrong — nobody had verified it against the actual binary asset since the original repo scan. What was actually broken was more interesting: the real `Launcher.unity` scene was disabled, and a duplicate, `Launcher 1.unity`, was the one active in the build. Fixed to a clean, verified 2-scene list. Also renamed the GitHub repo `wulfram3` → `wulfram3-revival` and changed its default branch/description, so the repo itself reads as "active revival" rather than looking like the dormant original.
+
 ## What's next
 
-Finish out `feature/m1-scene-build-settings`: fix `EditorBuildSettings.asset` so `Playground.unity` is actually in the build list (likely via a custom editor script run through Unity's CLI, now that batch-mode access is proven to work, rather than needing the GUI). Once that lands, `feature/m2-photon-pun2-migration` (dead Photon endpoint, PUN Classic → PUN2) is the next real milestone: M2, a first local match between two clients.
+Confirm the Build Settings fix actually works at runtime — nobody's pressed Play yet. After that, `feature/m2-photon-pun2-migration` (dead Photon endpoint, PUN Classic → PUN2) is the next real milestone: M2, a first local match between two clients.
 
 ## Maintenance note
 
