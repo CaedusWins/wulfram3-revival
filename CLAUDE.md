@@ -9,7 +9,7 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `REVIVAL.md` — human-readable narrative/timeline of the revival effort. Read this for the story; read this file for the facts.
 - `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
 
-**Immediate next action:** open this project in Unity `2017.3.0f3` for the first time, then work `feature/m1-scene-build-settings`. Unity is now installed — see Local Environment below for the exact path and how it got there.
+**Immediate next action:** M1 (opens & compiles) is done and verified — see Milestone Runway below. What's left on `feature/m1-scene-build-settings` is the actual Build Settings fix: add `Assets/Scenes/Playground.unity` to `EditorBuildSettings.asset`, drop the vendored MHLab `Launcher.unity` demo scene, resolve the duplicate `Launcher.unity` vs `Launcher 1.unity`. Now that Unity CLI access works (see Local Environment), this can likely be done via a custom `-executeMethod` editor script instead of requiring the GUI — worth trying that route first.
 
 ## What This Project Is
 
@@ -72,24 +72,31 @@ This file is the intended resume mechanism and should be sufficient on its own. 
 ## Milestone Runway
 
 - **M0 — Repo Untangled: DONE.** Fork confirmed, branch model set up (master/dev/revival branch), all three pushed to GitHub.
-- **M1 — Opens & Compiles: NEXT, NOT DONE.** Unity `2017.3.0f3` is now installed (see Local Environment) — the install blocker is cleared. Nobody has actually opened this project in it yet, though. Everything documented here is still static analysis, not a confirmed compile, until that first open/compile happens. Do NOT open this project in the Unity 6 install — that forces an unplanned, hard-to-reverse project upgrade attempt, which is exactly the engine decision we're deliberately deferring.
+- **M1 — Opens & Compiles: DONE, VERIFIED.** Ran the project through Unity `2017.3.0f3` in batch mode (`-batchmode -quit -nographics -projectPath ... -logFile ...`) twice. First run surfaced 2 real compile errors (see below); second run after fixing them: **all 4 assemblies "Compilation succeeded" (88 warnings, 0 errors), clean `Exiting batchmode successfully now!` exit.** This is the first empirically verified fact in the whole project — everything before this milestone was static analysis. Do NOT open this project in the Unity 6 install — that forces an unplanned, hard-to-reverse project upgrade attempt, which is exactly the engine decision we're deliberately deferring.
+  - **Bug caught by the first compile attempt:** the offline-mode fix in `UserController.cs` used C#'s `?.` null-conditional operator, but this project's legacy Mono compiler is capped at C# 4.0 (predates that operator by two language versions — `error CS1644`). Fixed by replacing `Foo?.Invoke(...)` with `if (Foo != null) Foo(...)`. Lesson: don't use C# 5+/6+ syntax anywhere in this codebase — no `?.`, `??` (verify), string interpolation (`$"..."`), `nameof()`, etc. — without confirming it compiles.
+  - **Bonus cleanup:** Unity's first import auto-deleted ~35 orphaned `.meta` files for folders that no longer exist on disk (e.g. a `Camera` folder under `Assets/Scripts/` that was long gone) — this is exactly the "Assets/Scripts/* stub" disorganization flagged in the original repo scan, now resolved as a side effect of actually opening the project. Committed separately from the C# fix.
+  - **How to re-run this compile check yourself:** `"C:\Program Files\Unity\Editor\Unity.exe" -batchmode -quit -nographics -projectPath "C:\Development\Wulfram_Development\wulfram3" -logFile <path>`, then grep the log for `error CS`, `Compilation failed`/`Compilation succeeded`, and `Exiting batchmode successfully` — don't trust the process exit code alone, it can be 0 even with compile errors present in the log.
 - **M2 — First Local Match:** two Unity instances join the same Photon room, both spawn into `Playground`, damage lands both ways, all without `wulfram.com` or any external login server.
 - **M3 — Public Alpha:** real Photon backend, closed playtest, repo clean enough for a second contributor.
 - **M4 — Full Economy (optional):** SupplyShips, SkyPumps, PowerCells, UpLink. Only if the scope decision above is revisited.
 
-## What's Already Fixed (on `revival/phase-0-1-bringup`, commit `1d76eb0`)
+## What's Already Fixed
 
+On `revival/phase-0-1-bringup` (commit `1d76eb0` unless noted):
 - **`Assets/InternalApis/Implementations/UserController.cs`** — added `public static bool OfflineMode = true` (the `wulfram.com:1337` socket.io backend is dead). `LoginUser`/`RegisterUser` now synthesize a local guest player instead of hanging on a dead connection. Also fixed a pre-existing bug where `GetUsername()` compared the username against the literal string `"null"` instead of testing for a real null/empty value — that bug produced a null player name on every launch regardless of backend status, online or off.
 - **`Assets/InternalApis/Implementations/DiscordApi.cs`** — removed a hardcoded, live Discord webhook URL that was committed to source. Now reads `WULFRAM_DISCORD_WEBHOOK_URL` from the environment and silently no-ops if unset. **Still needed from the user:** the old webhook should be revoked/regenerated on Discord's side — removing it from source code doesn't invalidate the credential itself.
 - **Deleted `Assets/HostGame.cs`** — dead UNET matchmaking leftover, confirmed unreferenced, unrelated to the actual Photon networking path.
 - **Deleted root-level `UnityPlayer.dll`** — stray 22MB binary sitting outside `Assets/` and outside `windows/`, not referenced by the project.
 
+On `feature/m1-scene-build-settings` (commits `5400b5a`, `b3e4717`):
+- **Fixed the C# 4.0 incompatibility** in `UserController.cs` that the first real compile attempt caught (`?.` → explicit null checks — see M1 in Milestone Runway for detail).
+- **Removed ~35 orphaned `.meta` files** for ghost folders, auto-flagged by Unity's own asset database on first import.
+
 ## What's Still Broken / Not Yet Done
 
-- **`ProjectSettings/EditorBuildSettings.asset`** — `Assets/Scenes/Playground.unity` (the actual arena `GameManager.cs` loads at runtime) is still missing from Build Settings. This file is Unity's binary serialization format, not text/YAML — do not hand-edit bytes; it needs to be fixed inside a real Unity 2017.3.0f3 editor. Also needs: removing the vendored `Assets/MHLab/PATCH/.../Launcher.unity` demo scene from the build list, and resolving the duplicate `Assets/Scenes/Launcher.unity` vs `Launcher 1.unity`.
+- **`ProjectSettings/EditorBuildSettings.asset`** — `Assets/Scenes/Playground.unity` (the actual arena `GameManager.cs` loads at runtime) is still missing from Build Settings. This file is Unity's binary serialization format, not text/YAML — do not hand-edit bytes. Now that Unity CLI/batch-mode access is confirmed working (see M1), the intended path is a custom `-executeMethod` editor script that sets `EditorBuildSettings.scenes` programmatically, rather than requiring the GUI. Also needs: removing the vendored `Assets/MHLab/PATCH/.../Launcher.unity` demo scene from the build list, and resolving the duplicate `Assets/Scenes/Launcher.unity` vs `Launcher 1.unity`.
 - **Photon networking** — `PhotonServerSettings.asset` points at a dead AWS IP (`18.218.55.176`), no working App ID exists. Needs a fresh Photon Cloud app, and a PUN Classic → PUN2 migration (use Photon's official converter tool, don't hand-port).
 - **No real account/stats backend** — `OfflineMode` is a stopgap for local testing, not a long-term replacement for the dead `wulfram.com:1337` service. Current leaning: ship an accountless "quick play" mode first rather than building a replacement backend immediately.
-- **Nothing has been compiled or run yet.** See M1 above — this is the single biggest open unknown in the whole project.
 
 ## Working Preferences
 
