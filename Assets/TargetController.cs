@@ -19,15 +19,14 @@ namespace Com.Wulfram3 {
         // Use this for initialization
         void Start() {
             gameManager = FindObjectOfType<GameManager>();
-            targets = GameObject.FindGameObjectsWithTag("Unit");
+            // Targets are found by their Unit component (below), not a "Unit" tag -
+            // that tag was never defined in TagManager, so FindGameObjectsWithTag threw.
         }
 
         // Update is called once per frame
         void Update() {
             if (!photonView.isMine)
                 return;
-
-            var units = (Unit[])GameObject.FindObjectsOfType(typeof(Unit));
 
             if (Input.GetKeyDown(KeyCode.T)) {
                 Vector3 pos = transform.position + (transform.forward * 2.0f + transform.up * 0.2f);
@@ -42,9 +41,17 @@ namespace Com.Wulfram3 {
 
             if (Input.GetKeyDown(KeyCode.Tab))
             {
-                currentTarget = currentTarget + 1 % targets.Length;
-                //target = targets[currentTarget];
-                gameManager.SetCurrentTarget(targets[currentTarget]);           
+                // Refreshed on each press - units spawn and die during play.
+                Unit[] units = FindObjectsOfType<Unit>();
+                targets = new GameObject[units.Length];
+                for (int i = 0; i < units.Length; i++) {
+                    targets[i] = units[i].gameObject;
+                }
+
+                if (targets.Length > 0) {
+                    currentTarget = (currentTarget + 1) % targets.Length;
+                    gameManager.SetCurrentTarget(targets[currentTarget]);
+                }
             }
         }
     }
