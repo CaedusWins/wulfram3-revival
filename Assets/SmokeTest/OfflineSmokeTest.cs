@@ -26,12 +26,18 @@ namespace Wulfram.SmokeTest
     /// Run it once without -batchmode as well: only a rendered frame makes the probe
     /// visible, which is what reaches the body of TargetInfoController.LateUpdate
     /// (reported as probePanelShown=True).
+    ///
+    /// Optional, windowed runs only: -smokeScreenshots <dir> saves the game's own rendered
+    /// frames there (launcher, arena, a 360-degree pan of the player's tank as pan-NN.png,
+    /// the target panel, the probe, back at the launcher). Without the flag nothing is saved
+    /// and the tank is never turned.
     /// </summary>
     public class OfflineSmokeTest : MonoBehaviour
     {
         private int exceptions;
         private int errors;
         private float seconds = 15f;
+        private string shotsDir;
         private readonly System.Collections.Generic.List<string> firstProblems = new System.Collections.Generic.List<string>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -40,6 +46,7 @@ namespace Wulfram.SmokeTest
             string[] args = System.Environment.GetCommandLineArgs();
             bool enabled = false;
             float seconds = 15f;
+            string shotsDir = null;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "-offlineSmokeTest")
@@ -50,6 +57,10 @@ namespace Wulfram.SmokeTest
                 {
                     float.TryParse(args[i + 1], out seconds);
                 }
+                if (args[i] == "-smokeScreenshots" && i + 1 < args.Length)
+                {
+                    shotsDir = args[i + 1];
+                }
             }
 
             if (!enabled)
@@ -59,7 +70,22 @@ namespace Wulfram.SmokeTest
 
             GameObject go = new GameObject("OfflineSmokeTest");
             DontDestroyOnLoad(go);
-            go.AddComponent<OfflineSmokeTest>().seconds = seconds;
+            OfflineSmokeTest test = go.AddComponent<OfflineSmokeTest>();
+            test.seconds = seconds;
+            test.shotsDir = shotsDir;
+        }
+
+        // Saves the next rendered frame as <shotsDir>/<name>.png (no-op without -smokeScreenshots).
+        private IEnumerator Shot(string name)
+        {
+            if (shotsDir == null)
+            {
+                yield break;
+            }
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(shotsDir, name + ".png"));
+            // The capture is written at the end of the frame.
+            yield return null;
+            yield return null;
         }
 
         private void Awake()
@@ -93,6 +119,16 @@ namespace Wulfram.SmokeTest
         private IEnumerator Start()
         {
             Debug.Log("SMOKE: starting in scene '" + SceneManager.GetActiveScene().name + "'");
+            if (shotsDir != null)
+            {
+                // Give the launcher UI a moment to draw.
+                float uiReady = Time.realtimeSinceStartup + 1.5f;
+                while (Time.realtimeSinceStartup < uiReady)
+                {
+                    yield return null;
+                }
+                yield return StartCoroutine(Shot("1-launcher"));
+            }
             PhotonNetwork.offlineMode = true;
             PhotonNetwork.CreateRoom("smoke");
 
@@ -107,8 +143,14 @@ namespace Wulfram.SmokeTest
 
             // 1. Let Playground run for a while so per-frame errors show up.
             float settle = Time.realtimeSinceStartup + seconds;
+            bool arenaShot = false;
             while (Time.realtimeSinceStartup < settle)
             {
+                if (!arenaShot && shotsDir != null && Time.realtimeSinceStartup > settle - seconds + 3f)
+                {
+                    arenaShot = true;
+                    yield return StartCoroutine(Shot("2-arena"));
+                }
                 yield return null;
             }
 
@@ -130,9 +172,47 @@ namespace Wulfram.SmokeTest
             bool playerSpawned = player != null;
             int cargo = FindObjectsOfType<Com.Wulfram3.Cargo>().Length;
 
+            // Screenshots only: turn the tank a full circle, a frame every 15 degrees.
+            if (shotsDir != null && player != null)
+            {
+                Rigidbody body = player.GetComponent<Rigidbody>();
+                Quaternion heading = player.transform.rotation;
+                for (int i = 0; i < 24; i++)
+                {
+                    Quaternion turned = Quaternion.Euler(0f, 15f * (i + 1), 0f) * heading;
+                    if (body != null)
+                    {
+                        body.angularVelocity = Vector3.zero;
+                        body.MoveRotation(turned);
+                    }
+                    else
+                    {
+                        player.transform.rotation = turned;
+                    }
+                    for (int f = 0; f < 4; f++)
+                    {
+                        yield return null;
+                    }
+                    yield return StartCoroutine(Shot("pan-" + i.ToString("00")));
+                }
+            }
+
+            // Include inactive objects: the panel deactivates its own GameObject whenever its target
+            // is off screen (e.g. a Tab pick), and FindObjectOfType skips inactive objects.
+            Com.Wulfram3.TargetInfoController info = null;
+            Com.Wulfram3.TargetInfoController[] infos = Resources.FindObjectsOfTypeAll<Com.Wulfram3.TargetInfoController>();
+            for (int i = 0; i < infos.Length; i++)
+            {
+                if (infos[i].gameObject.scene.IsValid())
+                {
+                    info = infos[i];
+                }
+            }
+
             // 2a. Tab targeting through the real TargetController.
             int tabPicks = 0;
             int tabInvalid = 0;
+            bool targetShot = false;
             Com.Wulfram3.TargetController targeting = player == null ? null : player.GetComponent<Com.Wulfram3.TargetController>();
             if (targeting != null)
             {
@@ -152,6 +232,11 @@ namespace Wulfram.SmokeTest
                     {
                         yield return null;
                     }
+                    if (!targetShot && shotsDir != null && info != null && info.targetInfoPanel != null && info.targetInfoPanel.activeSelf)
+                    {
+                        targetShot = true;
+                        yield return StartCoroutine(Shot("3-target-info"));
+                    }
                 }
             }
 
@@ -159,17 +244,6 @@ namespace Wulfram.SmokeTest
             bool probePanelShown = false;
             int probeVisibleFrames = 0;
             Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
-            // Include inactive objects: the panel deactivates its own GameObject whenever its target
-            // is off screen (e.g. the last Tab pick), and FindObjectOfType skips inactive objects.
-            Com.Wulfram3.TargetInfoController info = null;
-            Com.Wulfram3.TargetInfoController[] infos = Resources.FindObjectsOfTypeAll<Com.Wulfram3.TargetInfoController>();
-            for (int i = 0; i < infos.Length; i++)
-            {
-                if (infos[i].gameObject.scene.IsValid())
-                {
-                    info = infos[i];
-                }
-            }
             Debug.Log("SMOKE: probe setup - Camera.main=" + (Camera.main == null ? "none" : Camera.main.name) +
                 " cameras=" + Camera.allCamerasCount + " targetInfoController=" + (info != null));
             if (gameManager != null && Camera.main != null)
@@ -213,6 +287,10 @@ namespace Wulfram.SmokeTest
                     {
                         probePanelShown = true;
                     }
+                    if (f == 10 && probePanelShown)
+                    {
+                        yield return StartCoroutine(Shot("4-probe-panel"));
+                    }
                 }
 
                 gameManager.SetCurrentTarget(null);
@@ -237,6 +315,10 @@ namespace Wulfram.SmokeTest
                 while (Time.realtimeSinceStartup < launcherSettle)
                 {
                     yield return null;
+                }
+                if (returnedToLauncher)
+                {
+                    yield return StartCoroutine(Shot("5-back-at-launcher"));
                 }
             }
 
