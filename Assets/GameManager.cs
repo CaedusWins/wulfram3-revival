@@ -53,6 +53,14 @@ namespace Com.Wulfram3
         /// </summary>
         public void OnLeftRoom()
         {
+            // The local tank is DontDestroyOnLoad. Online, PUN destroys it when the room is
+            // left (NetworkingPeer.LeftRoomCleanup); in offline mode PUN skips that cleanup,
+            // and the tank kept running in the launcher (NullReferenceException in
+            // PlayerMovementManager.FixedUpdate every physics step - no TerrainCollider there).
+            if (PlayerMovementManager.LocalPlayerInstance != null)
+            {
+                Destroy(PlayerMovementManager.LocalPlayerInstance);
+            }
             SceneManager.LoadScene(0);
         }
 
