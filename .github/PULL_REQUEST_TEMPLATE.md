@@ -5,10 +5,9 @@
 
 ## Verification (all required before merging upward — see CLAUDE.md → "QA & Merge Process")
 
-- [ ] `checks` workflow is green on this PR (C# 4.0 guard, script identity guard, secret scan, required scenes)
-- [ ] Local Unity batch-mode compile: **0 errors** (`Compilation succeeded`, `Exiting batchmode successfully`)
-- [ ] `WulframSceneCheck.CheckBuildScenes`: **0 missing script references** in `Launcher 1.unity` and `Playground.unity`
-- [ ] Built player offline smoke test: `Wulfram3.exe -batchmode -offlineSmokeTest` prints **`SMOKE: PASS`** (Playground loads, player spawns, 0 missing scripts, 0 exceptions)
+- [ ] `checks` workflow is green on this PR (C# 4.0 guard, no UnityScript/Boo, script identity guard, secret scan, required scenes)
+- [ ] `Tools/verify-local.sh --windowed` prints **`VERIFIED`** on a **fresh clone of this PR's head commit**. It covers: compile with no compiler failure of any kind; 0 missing scripts in `Launcher 1.unity` / `Playground.unity`; 17 Cargo; audit matches `Tools/audit-baseline.txt`; a clean player build; offline smoke test `SMOKE: PASS` headless and windowed (`probePanelShown=True`)
+- [ ] Merge with `gh pr merge --merge --match-head-commit <verified sha>` (merge commit; keep the branch)
 - [ ] No credentials, tokens, or private endpoints added (env vars only)
 - [ ] `CLAUDE.md` / `REVIVAL.md` updated if this changes state, decisions, or blockers
 
