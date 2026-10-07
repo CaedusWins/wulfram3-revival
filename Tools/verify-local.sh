@@ -15,7 +15,9 @@
 #   6. smoke      the built player with -batchmode -offlineSmokeTest: "SMOKE: PASS".
 #   7. smoke-win  only with --windowed: the same in a small window (it opens on screen for ~20s -
 #                 don't click it), and probePanelShown=True is required too: only a rendered frame
-#                 reaches the body of TargetInfoController.LateUpdate.
+#                 reaches the body of TargetInfoController.LateUpdate. Run the script from an
+#                 interactive desktop session: launched from a background job, the windowed player
+#                 hangs at startup (right after "<RI> Input initialized.").
 #
 # Unity's process exit code is not trusted (it can be 0 with compile errors); every step reads its log.
 set -u
@@ -137,10 +139,12 @@ fi
 if [ "$WINDOWED" -eq 1 ]; then
   if [ "$built" -eq 1 ]; then
     log="$OUT/7-smoke-windowed.log"
-    timeout 300 "$player" -screen-fullscreen 0 -screen-width 640 -screen-height 360 -offlineSmokeTest -smokeSeconds 6 > "$log" 2>&1
+    timeout 180 "$player" -screen-fullscreen 0 -screen-width 640 -screen-height 360 -offlineSmokeTest -smokeSeconds 6 > "$log" 2>&1
     grep -E '^SMOKE: (scene=|problem)' "$log" | tr -d '\r' | sed 's/^/        /'
     if grep -q '^SMOKE: PASS' "$log" && grep -q 'probePanelShown=True' "$log"; then
       pass "smoke (windowed, target panel exercised)"
+    elif ! grep -q '^SMOKE: starting' "$log"; then
+      fail "smoke (windowed) - the player never started; run from an interactive desktop session, not a background job - see $log"
     else
       fail "smoke (windowed) - see $log"
     fi
