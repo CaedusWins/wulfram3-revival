@@ -42,6 +42,22 @@ jobs:
           test "$fail" -eq 0
           echo "C# language-level guard passed"
 
+      - name: No UnityScript or Boo scripts (legacy compiler is unstable here; removed in Unity 2018.2+)
+        run: |
+          set -e
+          # Unity 2017 compiles .js/.boo with its legacy Mono 2.0 runtime, which crashed or hit internal
+          # type-load errors on this project's dev machine and left stale script assemblies behind
+          # (corrupted player builds). The last UnityScript was ported/removed on 2026-10-07.
+          # .jslib/.jspre WebGL plugins are not UnityScript; WebGLTemplates, StreamingAssets and
+          # folders ending in ~ are never compiled.
+          found=$(find Assets \( -name '*.js' -o -name '*.boo' \) -not -path '*/WebGLTemplates/*' -not -path '*/StreamingAssets/*' -not -path '*~/*')
+          if [ -n "$found" ]; then
+            echo "$found"
+            echo "::error::UnityScript/Boo files found - write C# instead (see CLAUDE.md, 'UnityScript')"
+            exit 1
+          fi
+          echo "No UnityScript or Boo scripts"
+
       - name: Unity script identity guard (encoding + file name must match component class)
         run: |
           set -e
