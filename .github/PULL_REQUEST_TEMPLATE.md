@@ -5,9 +5,10 @@
 
 ## Verification (all required before merging upward — see CLAUDE.md → "QA & Merge Process")
 
-- [ ] `checks` workflow is green on this PR (C# 4.0 guard, secret scan, required scenes)
+- [ ] `checks` workflow is green on this PR (C# 4.0 guard, script identity guard, secret scan, required scenes)
 - [ ] Local Unity batch-mode compile: **0 errors** (`Compilation succeeded`, `Exiting batchmode successfully`)
-- [ ] `WulframSceneCheck.CheckBuildScenes`: **0 missing script references** in `Launcher.unity` and `Playground.unity`
+- [ ] `WulframSceneCheck.CheckBuildScenes`: **0 missing script references** in `Launcher 1.unity` and `Playground.unity`
+- [ ] Built player offline smoke test: `Wulfram3.exe -batchmode -offlineSmokeTest` prints **`SMOKE: PASS`** (Playground loads, player spawns, 0 missing scripts, 0 exceptions)
 - [ ] No credentials, tokens, or private endpoints added (env vars only)
 - [ ] `CLAUDE.md` / `REVIVAL.md` updated if this changes state, decisions, or blockers
 

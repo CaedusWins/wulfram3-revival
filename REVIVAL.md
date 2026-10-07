@@ -7,7 +7,7 @@ This is the **human-readable narrative** of the revival effort: what's happened,
 
 ## Where things stand right now
 
-Nothing has been opened in a real Unity Editor yet. That's the single next step. Everything below is real (forked, branched, committed, pushed) — but unverified against an actual compile until then.
+**The game builds and boots again.** As of 2026-10-07, a real Windows build goes from the launcher into the Playground arena, spawns a tank, and runs with zero errors (tested offline, no server). M1 is done. Next is merging that work into the revival branch, then M2: getting two players into the same match over a fresh Photon server.
 
 ## Timeline
 
@@ -24,12 +24,13 @@ Nothing has been opened in a real Unity Editor yet. That's the single next step.
 - **2026-08-29 (same day, continued)** — Scene data repair, partially. A new diagnostic (`WulframSceneCheck`) found 18 missing script references in `Playground.unity`. Removing the broken slots worked once the real cause was found (the objects were prefab instances, which Unity's old prefab system silently un-edits on save unless disconnected first) — that half is done and committed. Re-attaching the `Cargo` component to the 17 affected objects did *not* reliably persist from Unity's command line no matter how it was sliced (four approaches, best 10 of 17, one made things worse), so that last step is being finished by hand in the Unity editor instead. Full account in `CLAUDE.md`.
 - **2026-08-29 (same day, continued)** — Process hardening. GitHub branch protection on `master` and `dev`: pull request required, the `checks` workflow must pass, no force-pushes or deletes, admins not exempt. Added a Unity-free CI workflow (`checks`) that blocks the exact C# 4.0 syntax bug class that broke the first compile, scans for committed Discord webhook credentials, and confirms the two required scenes exist. Testing that scan locally paid for itself immediately: it found two more commented-out copies of the 2017 leaked webhook (`Launcher.cs`, `LauncherWithLogin.cs`), now scrubbed. The webhook is still in public git history (this fork *and* upstream), so revoking it on Discord's side remains an open action for the owner. Two further audit findings (plaintext-HTTP login backend, unvalidated client RPCs) recorded as tracked items in `CLAUDE.md`.
 
+- **2026-10-07** — **The "missing Cargo" mystery solved, and the first real build boots.** The 17 broken cargo objects were never really broken. The cargo script file had been saved in an unusual text encoding (UTF-16) under a lowercase name back in 2017, and Unity couldn't match it to its class, so every reference showed as "missing". Re-saving and renaming that one file brought all 17 back with their original data, which made the manual editor fix unnecessary. The one other broken item, an AI script for a SAM turret, turned out never to have been committed anywhere, by anyone; that dead link was removed. Then came the first actual build of the game. It surfaced two things static checks never could: the launcher scene picked last time was the wrong one (it crashed on start; the original team's choice was right), and a long-standing crash whenever a player spawned. Both are fixed. A new automated "smoke test" now drives the built game from launcher into the arena with no server and reports PASS. A new CI check also blocks the cargo bug's file problem from ever coming back.
+
 ## What's next
 
 1. **Owner action:** revoke the leaked Discord webhook in Discord (Server Settings → Integrations → Webhooks). Nothing in the repo can fix this; it's been public since 2017.
-2. Finish the 17 `Cargo` re-attachments by hand in the Unity editor, then verify with `WulframSceneCheck` (0 missing scripts, exactly 17 `Cargo` components).
-3. Open a PR `feature/m1-scene-build-settings` → `revival/phase-0-1-bringup` to close out M1 (the new `checks` workflow gates it).
-4. Then `feature/m2-photon-pun2-migration`: fresh Photon Cloud app, PUN Classic → PUN2. That's M2 — a first local match between two clients.
+2. Merge `feature/m1-scene-build-settings` → `revival/phase-0-1-bringup` via PR (`checks` gates it). That closes out M1.
+3. Then `feature/m2-photon-pun2-migration`: fresh Photon Cloud app, PUN Classic → PUN2. That's M2 — a first local match between two clients. Photon Chat moves to the new app at the same time.
 
 ## Maintenance note
 
