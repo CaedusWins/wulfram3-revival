@@ -28,11 +28,13 @@ This is the **human-readable narrative** of the revival effort: what's happened,
 
 - **2026-10-07 (later the same day)** — **A "no stone unturned" audit before merging, and it earned its keep.** Before merging the M1 work, every assumption got re-checked from scratch, and four real problems turned up. First, the fix for the targeting crash could itself select things the target panel can't display (shells, power cells, part of every tank), and aiming at the red power cell had crashed that panel every frame since 2018. Both are fixed, and an automated test now proves the panel survives the case that used to crash it. Second, leaving a match in offline mode left the player's tank running in the menu, throwing errors. Fixed. Third, and most important, two test builds came out **corrupted**. The cause traced back to Unity 2017's old compiler for "UnityScript", a legacy scripting language, which crashes at random on this machine. A handful of sample scripts from 2017 were the only reason the project used it, and only one of them mattered to the game. That one was converted to C#, and the unused rest were deleted with the owner's sign-off, so the unstable compiler is now never used. Fourth, the old compile check had a blind spot: it couldn't see that compiler's failures at all. All checks are now a single script, `Tools/verify-local.sh`, which must say `VERIFIED` before anything merges.
 
+- **2026-10-07 (evening)** — **M1 merged.** The bring-up work landed in the revival branch (PR #1), but only after the final check ran on a completely fresh copy of the project, built from nothing but what's in git: it compiled, built, booted into the arena and back, and passed every test. That last check caught two final details. A batch of leftover folder placeholders that confused fresh copies was cleaned up, and a "hang" turned out to be the game's own settings window waiting for someone to press Play. The first screenshots and a 360° clip of the revived game running were captured along the way.
+
 ## What's next
 
 1. **Owner action:** revoke the leaked Discord webhook in Discord (Server Settings → Integrations → Webhooks). Nothing in the repo can fix this; it's been public since 2017.
-2. Merge `feature/m1-scene-build-settings` → `revival/phase-0-1-bringup` via PR #1, gated by `checks` and by `Tools/verify-local.sh --windowed` on a fresh clone. That closes out M1.
-3. Then `feature/m2-photon-pun2-migration`: fresh Photon Cloud app, PUN Classic → PUN2. That's M2 — a first local match between two clients. Photon Chat moves to the new app at the same time.
+2. **Owner action:** create a free Photon Cloud app (photonengine.com) and share its App ID. M2 needs it.
+3. `feature/m2-photon-pun2-migration`: bring it up to date with the revival branch first, then a fresh Photon Cloud app and PUN Classic → PUN2. That's M2, a first local match between two clients. Photon Chat moves to the new app at the same time.
 
 ## Maintenance note
 
