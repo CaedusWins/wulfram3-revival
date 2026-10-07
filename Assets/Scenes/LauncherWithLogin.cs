@@ -262,7 +262,8 @@ namespace Com.Wulfram3 {
 
         public override void OnDisconnectedFromPhoton() {
             //Debug.Log("DemoAnimator/Launcher: OnJoinedRoom() called by PUN. Now this client is in a room.");
-            //string discordURI = "https://discordapp.com/api/webhooks/389264790230532107/LgvTNdOLb28JQmtTpK1yBzam-CMAnEhDqLkmXT4CqAyP-8id8ydWisx2yz8Ga6fQ5wX2";
+            // (Discord webhook URL removed here - it was a live credential committed to source.
+            //  DiscordApi.cs now reads WULFRAM_DISCORD_WEBHOOK_URL from the environment instead.)
 
 
             //string greetdiscord = string.Format ("{0} has disconnected from Wulfram 3!", PhotonNetwork.playerName);

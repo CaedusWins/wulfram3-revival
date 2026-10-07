@@ -55,7 +55,7 @@ namespace Assets.InternalApis.Implementations
 
                 this.player = new WulframPlayer { userName = guestName, type = "Guest", scores = new PlayerScores() };
                 PhotonNetwork.playerName = guestName;
-                LoginCompleted?.Invoke(player, "Login Complete (offline)");
+                if (LoginCompleted != null) LoginCompleted(player, "Login Complete (offline)");
                 return;
             }
 
@@ -66,7 +66,7 @@ namespace Assets.InternalApis.Implementations
         {
             if (OfflineMode)
             {
-                RegisterUserCompleted?.Invoke("Registration is unavailable in offline mode.");
+                if (RegisterUserCompleted != null) RegisterUserCompleted("Registration is unavailable in offline mode.");
                 return;
             }
 

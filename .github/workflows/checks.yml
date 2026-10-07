@@ -1,0 +1,130 @@
+name: checks
+
+# Guardrails that need no Unity license, so they can run on every push and PR.
+# The real Unity compile + scene validation still run locally in batch mode
+# before merging upward (see CLAUDE.md -> "QA & Merge Process") until a Unity
+# license is available for CI.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: C# language-level guard (project compiler is capped at C# 4.0)
+        run: |
+          set -e
+          fail=0
+          # Null-conditional operator, C# 6:  foo?.Bar / foo()?.Bar
+          if grep -rnE --include='*.cs' '[])A-Za-z0-9_]\?\.[A-Za-z_]' Assets; then
+            echo "::error::C# 6 null-conditional operator (?.) found - this project compiles as C# 4.0 (see CLAUDE.md, M1)"
+            fail=1
+          fi
+          # String interpolation, C# 6:  $"..." / $@"..."  (anchored so a regex '$"' end-anchor inside a string does not match)
+          if grep -rnE --include='*.cs' '(^|[[:space:](=,+:?])\$@?"' Assets; then
+            echo "::error::C# 6 string interpolation found - this project compiles as C# 4.0"
+            fail=1
+          fi
+          # nameof(), C# 6
+          if grep -rnE --include='*.cs' '\bnameof\(' Assets; then
+            echo "::error::C# 6 nameof() found - this project compiles as C# 4.0"
+            fail=1
+          fi
+          test "$fail" -eq 0
+          echo "C# language-level guard passed"
+
+      - name: No UnityScript or Boo scripts (legacy compiler is unstable here; removed in Unity 2018.2+)
+        run: |
+          set -e
+          # Unity 2017 compiles .js/.boo with its legacy Mono 2.0 runtime, which crashed or hit internal
+          # type-load errors on this project's dev machine and left stale script assemblies behind
+          # (corrupted player builds). The last UnityScript was ported/removed on 2026-10-07.
+          # .jslib/.jspre WebGL plugins are not UnityScript; WebGLTemplates, StreamingAssets and
+          # folders ending in ~ are never compiled.
+          found=$(find Assets \( -name '*.js' -o -name '*.boo' \) -not -path '*/WebGLTemplates/*' -not -path '*/StreamingAssets/*' -not -path '*~/*')
+          if [ -n "$found" ]; then
+            echo "$found"
+            echo "::error::UnityScript/Boo files found - write C# instead (see CLAUDE.md, 'UnityScript')"
+            exit 1
+          fi
+          echo "No UnityScript or Boo scripts"
+
+      - name: Unity script identity guard (encoding + file name must match component class)
+        run: |
+          set -e
+          fail=0
+          # Unity maps a saved component back to its class through the script file. A UTF-16
+          # file, or a component class whose name differs from the file name (even only by case),
+          # resolves to no class - every scene/prefab reference to it then loads as "missing".
+          # This is exactly what broke all 17 Cargo objects (cargo.cs, UTF-16, class Cargo).
+          while IFS= read -r -d '' f; do
+            bom=$(head -c2 "$f" | od -An -tx1 | tr -d ' \n')
+            if [ "$bom" = "fffe" ] || [ "$bom" = "feff" ]; then
+              echo "::error file=$f::UTF-16 encoded script - Unity cannot resolve its class; save as UTF-8"
+              fail=1
+            fi
+            name=$(basename "$f" .cs)
+            if ! grep -qE "class[[:space:]]+$name\b" "$f" && \
+               grep -qiE "class[[:space:]]+$name[[:space:]]*:[^{]*(Behaviour|ScriptableObject)" "$f"; then
+              echo "::error file=$f::component class name differs from file name '$name' (case-sensitive)"
+              fail=1
+            fi
+          done < <(find Assets -name '*.cs' -print0)
+          test "$fail" -eq 0
+          echo "Unity script identity guard passed"
+
+      - name: Unity .meta integrity (every asset and folder has a .meta; every .meta has an asset)
+        run: |
+          set -e
+          # A missing .meta makes every fresh clone invent a new GUID, breaking references to the asset.
+          # An orphaned .meta (its file or folder has no tracked content, so it doesn't exist in a clone)
+          # is deleted by Unity on first open, leaving every fresh clone dirty. Folders count only if they
+          # hold a tracked non-.meta file. Unity ignores names starting with '.' or ending in '~', and *.tmp.
+          t=$(mktemp -d)
+          git -c core.quotepath=false ls-files 'Assets/*' | grep -vE '(^|/)\.|~(/|$)|\.tmp$' | sort > "$t/all"
+          grep -v '\.meta$' "$t/all" > "$t/files" || true
+          awk -F/ '{p=$1; for(i=2;i<NF;i++){p=p"/"$i; print p}}' "$t/files" | sort -u > "$t/dirs"
+          sort -u "$t/files" "$t/dirs" | sed 's/$/.meta/' | sort > "$t/needed"
+          grep '\.meta$' "$t/all" | sort > "$t/metas" || true
+          missing=$(comm -23 "$t/needed" "$t/metas")
+          orphans=$(comm -13 "$t/needed" "$t/metas")
+          if [ -n "$missing" ]; then
+            echo "$missing"
+            echo "::error::assets or folders without a committed .meta (commit the .meta Unity generated)"
+          fi
+          if [ -n "$orphans" ]; then
+            echo "$orphans"
+            echo "::error::.meta files whose asset/folder is not in git (Unity deletes these in fresh clones)"
+          fi
+          # Explicit exit: under set -e, a failure in the first half of 'test A && test B' is ignored.
+          if [ -n "$missing" ] || [ -n "$orphans" ]; then
+            exit 1
+          fi
+          echo "Unity .meta integrity OK"
+
+      - name: Secret scan (credentials committed to source)
+        run: |
+          set -e
+          # Discord webhook URLs carry their auth token in the path. One was committed here in 2017
+          # and had to be scrubbed; this keeps it (or another) from coming back.
+          if grep -rnIE 'discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+' . --exclude-dir=.git; then
+            echo "::error::Discord webhook URL with token found in source"
+            exit 1
+          fi
+          echo "Secret scan passed"
+
+      - name: Required scenes present
+        run: |
+          set -e
+          test -f "Assets/Scenes/Launcher 1.unity"
+          test -f "Assets/Scenes/Playground.unity"
+          echo "Required scenes present"

@@ -1,0 +1,29 @@
+# Known, accepted findings of WulframProjectAudit (Tools/verify-local.sh compares against this).
+# A NEW line in the audit output fails verification; a line listed here that no longer appears
+# is reported so it can be removed. Keep the reason next to each entry.
+#
+# Prefabs with a missing script. Only Tron.prefab ships (it sits in a Resources folder), and no
+# code loads it. The rest are unused vendored/old prefabs, not included in any build.
+prefab-missing 1 [RESOURCES - SHIPS] Assets/AstatineWars/Resources/Terrains/Tron.prefab
+prefab-missing 1 Assets/BlueFiles/UpLink.prefab
+prefab-missing 1 Assets/GunTurret.prefab
+prefab-missing 1 Assets/PlayerCube.prefab
+prefab-missing 1 Assets/Standard Assets/ParticleSystems/Prefabs/Afterburner.prefab
+prefab-missing 1 Assets/Standard Assets/ParticleSystems/Prefabs/Explosion.prefab
+prefab-missing 1 Assets/Standard Assets/ParticleSystems/Prefabs/Hose.prefab
+prefab-missing 1 Assets/Standard Assets/ParticleSystems/Prefabs/HoseMobile.prefab
+prefab-missing 1 Assets/Standard Assets/Utility/Prefabs/FramerateCounter.prefab
+#
+# Component-like scripts with no class Unity can resolve: generic base classes, multi-class or
+# platform-conditional vendor files, a REST demo, and PlayerInputField.cs (dead copy of a Photon
+# tutorial script, class PlayerNameInputField, referenced by nothing).
+unresolvable-script Assets/MHLab/PATCH/Localizatron/Core/Singleton.cs
+unresolvable-script Assets/Photon Unity Networking/Plugins/PhotonNetwork/Enums.cs
+unresolvable-script Assets/Photon Unity Networking/Plugins/PhotonNetwork/PhotonClasses.cs
+unresolvable-script Assets/Photon Unity Networking/Plugins/PhotonNetwork/SocketWebTcp.cs
+unresolvable-script Assets/Plugins/socket.io/Singleton.cs
+unresolvable-script Assets/Plugins/UniRx/Scripts/UnityEngineBridge/ObservableMonoBehaviour.cs
+unresolvable-script Assets/Plugins/UniRx/Scripts/UnityEngineBridge/Triggers/ObservableTriggerExtensions.Component.cs
+unresolvable-script Assets/Plugins/UniRx/Scripts/UnityEngineBridge/TypedMonoBehaviour.cs
+unresolvable-script Assets/RestClient/DemoScene/Scripts/MainScript.cs
+unresolvable-script Assets/Scenes/PlayerInputField.cs

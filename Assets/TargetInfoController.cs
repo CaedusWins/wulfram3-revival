@@ -24,7 +24,11 @@ namespace Com.Wulfram3 {
 
         // Update is called once per frame
         void LateUpdate() {
-            if (target != null && target.GetComponentInChildren<MeshRenderer>().isVisible && Camera.main != null) {
+            // Null guards: a T-press can target any Unit (power cells and shells have no
+            // HitPointsManager), and the local tank can be destroyed while a target is selected.
+            // Each of these used to throw NullReferenceException every frame.
+            MeshRenderer targetRenderer = target != null ? target.GetComponentInChildren<MeshRenderer>() : null;
+            if (target != null && targetRenderer != null && targetRenderer.isVisible && Camera.main != null && PlayerMovementManager.LocalPlayerInstance != null) {
                 targetInfoPanel.SetActive(true);
                 pos = Camera.main.WorldToScreenPoint(target.transform.position);
                 pos.z = 0;
@@ -36,7 +40,8 @@ namespace Com.Wulfram3 {
                 PlayerMovementManager player = PlayerMovementManager.LocalPlayerInstance.GetComponent<PlayerMovementManager>();
                 var dist = Math.Round(Vector3.Distance(target.transform.position, player.transform.position), 0);
 
-                hitpoints.text = dist + "M " + target.GetComponent<HitPointsManager>().health + "HP";
+                HitPointsManager targetHitpoints = target.GetComponent<HitPointsManager>();
+                hitpoints.text = dist + "M" + (targetHitpoints != null ? " " + targetHitpoints.health + "HP" : "");
                 name.text = target.GetComponent<Unit>().name;
                 team.text = target.GetComponent<Unit>().team;
 
@@ -64,9 +69,11 @@ namespace Com.Wulfram3 {
                         break;
                 }
 
-                if(target.GetComponent<Unit>().unitType == Assets.InternalApis.Classes.UnitType.Tank || target.GetComponent<Unit>().unitType == Assets.InternalApis.Classes.UnitType.Scout)
+                PhotonView targetView = target.GetComponent<PhotonView>();
+                if((target.GetComponent<Unit>().unitType == Assets.InternalApis.Classes.UnitType.Tank || target.GetComponent<Unit>().unitType == Assets.InternalApis.Classes.UnitType.Scout)
+                    && targetView != null && targetView.owner != null)
                 {
-                    user.text = FindObjectOfType<GameManager>().GetColoredPlayerName(target.GetComponent<PhotonView>().owner.NickName, target.GetComponent<PhotonView>().owner.IsMasterClient);
+                    user.text = FindObjectOfType<GameManager>().GetColoredPlayerName(targetView.owner.NickName, targetView.owner.IsMasterClient);
                 }
                 else
                 {
