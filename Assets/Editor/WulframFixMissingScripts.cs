@@ -6,7 +6,17 @@ using UnityEngine.SceneManagement;
 namespace Wulfram.EditorTools
 {
     /// <summary>
-    /// Fixes the 18 missing-script references WulframSceneCheck found in
+    /// ROOT CAUSE FOUND LATER (see WulframScriptCheck): the 17 Cargo slots were
+    /// never stale - they pointed at the right script all along, but
+    /// Assets/BlueFiles/cargo.cs was UTF-16 encoded with a lowercase file name,
+    /// so Unity resolved it to no class and loaded every reference as missing.
+    /// Re-encoding it as UTF-8 and renaming it Cargo.cs restored all 17 original
+    /// components (Playground.unity was reverted to its 2018 version). The
+    /// AddCargo* methods below treated the symptom and are kept only as a record
+    /// - do not use them. RemoveMissingOnly / RemoveMissingFromRmlPrefab were
+    /// used for the one genuinely unrecoverable script (Turret_SAM).
+    ///
+    /// Original notes - fixes the 18 missing-script references WulframSceneCheck found in
     /// Playground.unity. Evidence-based, not a guess:
     ///
     /// - 16 of the 18 are on objects named "Cargo"/"Cargo (N)"/"*Cargo", all
@@ -54,6 +64,46 @@ namespace Wulfram.EditorTools
 
             EditorSceneManager.SaveScene(scene);
             Debug.Log("WulframFixMissingScripts: RemoveMissingOnly done - objects cleaned: " + removedFrom);
+        }
+
+        // RML.prefab's Turret_SAM carries a missing-script slot too. The script
+        // (a turret AI: myProjectile, reloadTime, turnSpeed, muzzlePositions,
+        // pivot/aim transforms - recovered from the prefab's original 2017
+        // text-serialized version, 0f28b84) was never committed to this repo,
+        // upstream, or any upstream branch/PR, so there is nothing to restore.
+        //
+        // Editing the prefab asset's GameObjects in place does NOT work: the
+        // slot is dropped and the file rewritten, but the orphaned broken
+        // MonoBehaviour stays in the file and Unity re-attaches it on the next
+        // load (verified in a fresh process: still 1 missing). Instead, clean a
+        // temporary scene instance and rebuild the whole asset from it with
+        // ReplacePrefab, which only writes objects the instance still has.
+        // ReplaceNameBased keeps the asset's internal object identities.
+        //
+        // Run via:
+        //   -executeMethod Wulfram.EditorTools.WulframFixMissingScripts.RemoveMissingFromRmlPrefab
+        public static void RemoveMissingFromRmlPrefab()
+        {
+            string path = "Assets/redfiles/redmisslelauncher/RML.prefab";
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+
+            Transform[] all = instance.GetComponentsInChildren<Transform>(true);
+            int cleaned = 0;
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (RemoveMissingScripts(all[i].gameObject))
+                {
+                    cleaned++;
+                    Debug.Log("WulframFixMissingScripts: removed missing script from " + path + " object " + all[i].name);
+                }
+            }
+
+            PrefabUtility.ReplacePrefab(instance, prefab, ReplacePrefabOptions.ReplaceNameBased);
+            AssetDatabase.SaveAssets();
+            Object.DestroyImmediate(instance);
+            Debug.Log("WulframFixMissingScripts: RemoveMissingFromRmlPrefab done - objects cleaned: " + cleaned);
         }
 
         // Phase 2: reopen the now-clean scene and attach Cargo to every
@@ -278,7 +328,11 @@ namespace Wulfram.EditorTools
 
             so.ApplyModifiedProperties();
             EditorUtility.SetDirty(go);
-            EditorSceneManager.MarkSceneDirty(go.scene);
+            // Prefab assets have no scene - SetDirty + SaveAssets covers them.
+            if (go.scene.IsValid())
+            {
+                EditorSceneManager.MarkSceneDirty(go.scene);
+            }
             return true;
         }
     }
