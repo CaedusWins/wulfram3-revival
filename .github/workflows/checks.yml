@@ -82,6 +82,35 @@ jobs:
           test "$fail" -eq 0
           echo "Unity script identity guard passed"
 
+      - name: Unity .meta integrity (every asset and folder has a .meta; every .meta has an asset)
+        run: |
+          set -e
+          # A missing .meta makes every fresh clone invent a new GUID, breaking references to the asset.
+          # An orphaned .meta (its file or folder has no tracked content, so it doesn't exist in a clone)
+          # is deleted by Unity on first open, leaving every fresh clone dirty. Folders count only if they
+          # hold a tracked non-.meta file. Unity ignores names starting with '.' or ending in '~', and *.tmp.
+          t=$(mktemp -d)
+          git -c core.quotepath=false ls-files 'Assets/*' | grep -vE '(^|/)\.|~(/|$)|\.tmp$' | sort > "$t/all"
+          grep -v '\.meta$' "$t/all" > "$t/files" || true
+          awk -F/ '{p=$1; for(i=2;i<NF;i++){p=p"/"$i; print p}}' "$t/files" | sort -u > "$t/dirs"
+          sort -u "$t/files" "$t/dirs" | sed 's/$/.meta/' | sort > "$t/needed"
+          grep '\.meta$' "$t/all" | sort > "$t/metas" || true
+          missing=$(comm -23 "$t/needed" "$t/metas")
+          orphans=$(comm -13 "$t/needed" "$t/metas")
+          if [ -n "$missing" ]; then
+            echo "$missing"
+            echo "::error::assets or folders without a committed .meta (commit the .meta Unity generated)"
+          fi
+          if [ -n "$orphans" ]; then
+            echo "$orphans"
+            echo "::error::.meta files whose asset/folder is not in git (Unity deletes these in fresh clones)"
+          fi
+          # Explicit exit: under set -e, a failure in the first half of 'test A && test B' is ignored.
+          if [ -n "$missing" ] || [ -n "$orphans" ]; then
+            exit 1
+          fi
+          echo "Unity .meta integrity OK"
+
       - name: Secret scan (credentials committed to source)
         run: |
           set -e
