@@ -9,7 +9,7 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `REVIVAL.md` — human-readable narrative/timeline of the revival effort. Read this for the story; read this file for the facts.
 - `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
 
-**Immediate next action (as of 2026-10-07):** `feature/m1-scene-build-settings` (PR #1) is complete. After a pre-merge audit (see "What's Already Fixed" → pre-merge audit), it merges into `revival/phase-0-1-bringup` once `Tools/verify-local.sh --windowed` passes on a fresh clone of the exact head commit. Then start M2 on `feature/m2-photon-pun2-migration`, merging `revival/phase-0-1-bringup` into it first, since it predates all of this. Still open and user-only: revoke the leaked Discord webhook, and create a Photon app for M2.
+**Immediate next action (as of 2026-10-07):** **M1 is merged.** PR #1 went into `revival/phase-0-1-bringup` as merge commit `3dd05cc` on 2026-10-07, after `Tools/verify-local.sh --screenshots` printed VERIFIED on a fresh clone of the exact head `0849e12`. The merged tree is identical to that verified commit, and the clone stayed clean after Unity opened it. Next is M2 on `feature/m2-photon-pun2-migration`: **first merge `revival/phase-0-1-bringup` into it**, since it branched off long before all of this. Still open and user-only: revoke the leaked Discord webhook, and create a Photon Cloud app (App ID) for M2. Optional, the user's call: promote `revival/phase-0-1-bringup` → `dev` through a PR. M1's end-to-end proof now exists; `dev` is protected and needs a PR plus green `checks`.
 
 ## What This Project Is
 
