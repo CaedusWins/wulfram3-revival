@@ -159,7 +159,17 @@ namespace Wulfram.SmokeTest
             bool probePanelShown = false;
             int probeVisibleFrames = 0;
             Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
-            Com.Wulfram3.TargetInfoController info = FindObjectOfType<Com.Wulfram3.TargetInfoController>();
+            // Include inactive objects: the panel deactivates its own GameObject whenever its target
+            // is off screen (e.g. the last Tab pick), and FindObjectOfType skips inactive objects.
+            Com.Wulfram3.TargetInfoController info = null;
+            Com.Wulfram3.TargetInfoController[] infos = Resources.FindObjectsOfTypeAll<Com.Wulfram3.TargetInfoController>();
+            for (int i = 0; i < infos.Length; i++)
+            {
+                if (infos[i].gameObject.scene.IsValid())
+                {
+                    info = infos[i];
+                }
+            }
             Debug.Log("SMOKE: probe setup - Camera.main=" + (Camera.main == null ? "none" : Camera.main.name) +
                 " cameras=" + Camera.allCamerasCount + " targetInfoController=" + (info != null));
             if (gameManager != null && Camera.main != null)
