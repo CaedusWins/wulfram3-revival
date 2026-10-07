@@ -25,6 +25,11 @@ namespace Wulfram.EditorTools
     {
         public static void Run()
         {
+            // Informational: the launch dialog (displayResolutionDialog) is what a windowed smoke run
+            // has to click through (Tools/press-play.ps1).
+            Debug.Log("AUDIT: setting displayResolutionDialog=" + PlayerSettings.displayResolutionDialog +
+                " defaultIsFullScreen=" + PlayerSettings.defaultIsFullScreen +
+                " runInBackground=" + PlayerSettings.runInBackground);
             AuditPrefabMissingScripts();
             AuditUnresolvableScripts();
             AuditDragTransforms();
