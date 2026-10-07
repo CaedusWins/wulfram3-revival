@@ -80,6 +80,6 @@ jobs:
       - name: Required scenes present
         run: |
           set -e
-          test -f "Assets/Scenes/Launcher.unity"
+          test -f "Assets/Scenes/Launcher 1.unity"
           test -f "Assets/Scenes/Playground.unity"
           echo "Required scenes present"

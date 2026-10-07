@@ -63,6 +63,84 @@ namespace Wulfram.EditorTools
             }
         }
 
+        // Lists every unassigned object-reference field on each Launcher component
+        // in a launcher scene - Launcher.Start() dereferences several of them.
+        // Defaults to Launcher.unity; pass -scenePath to check another scene.
+        //
+        // Run via:
+        //   -executeMethod Wulfram.EditorTools.WulframSceneCheck.CheckLauncherReferences [-scenePath "Assets/Scenes/Launcher 1.unity"]
+        public static void CheckLauncherReferences()
+        {
+            string path = "Assets/Scenes/Launcher.unity";
+            string[] args = System.Environment.GetCommandLineArgs();
+            for (int a = 0; a < args.Length - 1; a++)
+            {
+                if (args[a] == "-scenePath")
+                {
+                    path = args[a + 1];
+                }
+            }
+
+            EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+            // Launcher (Launcher.unity) and LauncherWithLogin (Launcher 1.unity)
+            // are near-identical classes with the same fields.
+            System.Collections.Generic.List<MonoBehaviour> all = new System.Collections.Generic.List<MonoBehaviour>();
+            all.AddRange(Object.FindObjectsOfType<Com.Wulfram3.Launcher>());
+            all.AddRange(Object.FindObjectsOfType<Com.Wulfram3.LauncherWithLogin>());
+            Debug.Log("WulframSceneCheck: Launcher components in " + path + ": " + all.Count);
+            for (int i = 0; i < all.Count; i++)
+            {
+                SerializedProperty it = new SerializedObject(all[i]).GetIterator();
+                bool enter = true;
+                while (it.NextVisible(enter))
+                {
+                    enter = false;
+                    if (it.propertyType == SerializedPropertyType.ObjectReference && it.propertyPath != "m_Script")
+                    {
+                        Debug.Log("WulframSceneCheck: Launcher on '" + all[i].gameObject.name + "' field " + it.propertyPath +
+                            " = " + (it.objectReferenceValue == null ? "UNASSIGNED" : it.objectReferenceValue.name));
+                    }
+                }
+            }
+        }
+
+        // Lists every MonoBehaviour (and missing script) in a scene, with its
+        // hierarchy path. Pass -scenePath; defaults to Launcher.unity.
+        //
+        // Run via:
+        //   -executeMethod Wulfram.EditorTools.WulframSceneCheck.ListSceneScripts -scenePath "Assets/Scenes/Launcher 1.unity"
+        public static void ListSceneScripts()
+        {
+            string path = "Assets/Scenes/Launcher.unity";
+            string[] args = System.Environment.GetCommandLineArgs();
+            for (int a = 0; a < args.Length - 1; a++)
+            {
+                if (args[a] == "-scenePath")
+                {
+                    path = args[a + 1];
+                }
+            }
+
+            Scene scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+            GameObject[] roots = scene.GetRootGameObjects();
+            int missing = 0;
+            for (int r = 0; r < roots.Length; r++)
+            {
+                missing += ReportMissingScripts(roots[r], roots[r].name);
+                MonoBehaviour[] behaviours = roots[r].GetComponentsInChildren<MonoBehaviour>(true);
+                for (int b = 0; b < behaviours.Length; b++)
+                {
+                    string ns = behaviours[b] == null ? null : behaviours[b].GetType().Namespace;
+                    if (behaviours[b] != null && (ns == null || !ns.StartsWith("UnityEngine")))
+                    {
+                        Debug.Log("WulframSceneCheck: " + path + " script " + behaviours[b].GetType().FullName +
+                            " on " + behaviours[b].gameObject.name);
+                    }
+                }
+            }
+            Debug.Log("WulframSceneCheck: " + path + " - root objects: " + roots.Length + ", missing script references: " + missing);
+        }
+
         private static int ReportMissingScripts(GameObject go, string hierarchyPath)
         {
             int count = 0;

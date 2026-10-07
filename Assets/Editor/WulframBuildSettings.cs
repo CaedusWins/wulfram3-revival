@@ -11,6 +11,16 @@ namespace Wulfram.EditorTools
     /// launcher scene that isn't part of this game, and a duplicate launcher scene
     /// ("Launcher 1.unity") sitting next to the real one.
     ///
+    /// CORRECTION (verified by building and running the player): "Launcher 1.unity"
+    /// is the real launcher, not a duplicate. It holds the LauncherWithLogin
+    /// component with the full login/registration UI wired up, and it is the scene
+    /// the original team kept editing through Jan 2018 (and had enabled in Build
+    /// Settings). "Launcher.unity" is an older name-entry scene whose Launcher
+    /// component expects that same UI but has none of it assigned - the built
+    /// player threw NullReferenceException in Launcher.Start() when it was scene 0.
+    /// GameManager returns to the launcher by index (LoadScene(0)), so the launcher
+    /// must stay first.
+    ///
     /// Run via Unity's CLI so this can be done safely and repeatably without
     /// touching the binary asset by hand:
     ///   Unity.exe -batchmode -quit -projectPath <path>
@@ -29,7 +39,7 @@ namespace Wulfram.EditorTools
 
             EditorBuildSettingsScene[] scenes = new EditorBuildSettingsScene[]
             {
-                new EditorBuildSettingsScene("Assets/Scenes/Launcher.unity", true),
+                new EditorBuildSettingsScene("Assets/Scenes/Launcher 1.unity", true),
                 new EditorBuildSettingsScene("Assets/Scenes/Playground.unity", true),
             };
 
