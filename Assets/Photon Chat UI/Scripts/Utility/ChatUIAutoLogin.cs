@@ -21,6 +21,14 @@ namespace PhotonChatUI
         void Update()
         {
       
+            // Wulfram: no chat while PUN is offline (offline play, smoke test). Chat would otherwise
+            // reach Photon's cloud with the 2017 Chat App ID, and log "Cannot send op" on leaving.
+            if (ischatConnected == false && PhotonNetwork.offlineMode)
+            {
+                ischatConnected = true;
+                return;
+            }
+
             if (ischatConnected == false)
             {
                 base.OnJoinedRoom();
