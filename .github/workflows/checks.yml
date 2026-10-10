@@ -120,6 +120,12 @@ jobs:
             echo "::error::Discord webhook URL with token found in source"
             exit 1
           fi
+          # The Photon App ID lives only in the gitignored Assets/Resources/PhotonAppId.local.txt
+          # (public repo: anyone with the ID can use its CCU). Catch a forced 'git add -f'.
+          if git ls-files | grep -i 'PhotonAppId'; then
+            echo "::error::the local Photon App ID file is committed - remove it (git rm --cached) and keep it local"
+            exit 1
+          fi
           echo "Secret scan passed"
 
       - name: Required scenes present
