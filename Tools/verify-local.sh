@@ -2,7 +2,7 @@
 # Local verification gate: everything "verified" means before a merge upward
 # (CLAUDE.md -> "QA & Merge Process"). Needs Unity 2017.3.0f3; run from Git Bash on Windows.
 #
-#   Tools/verify-local.sh [--project <path>] [--out <dir>] [--windowed] [--screenshots]
+#   Tools/verify-local.sh [--project <path>] [--out <dir>] [--windowed] [--screenshots] [--editor]
 #
 # Steps - each one fails loudly, and the script exits non-zero if any step failed:
 #   1. compile    batch-mode import + compile. ANY compiler failure fails it
@@ -13,12 +13,17 @@
 #   5. build      Windows 64-bit player: no compiler failure, and no "Script attached ... missing"
 #                 warning except the known one ('Sun' in Resources/Terrains/Tron.prefab).
 #   6. smoke      the built player with -batchmode -offlineSmokeTest: "SMOKE: PASS".
+#   6b.           the same with -offlinePlay: enters through the launcher's real Play button.
 #   7. smoke-win  only with --windowed: the same in a 1280x720 window (it is on screen for ~30s -
 #                 don't click it), and probePanelShown=True is required too: only a rendered frame
 #                 reaches the body of TargetInfoController.LateUpdate. If the game first shows Unity's
 #                 launch dialog ("Wulfram 3 Configuration"), Tools/press-play.ps1 presses "Play!".
 #                 Needs an interactive desktop session. --screenshots also saves the game's own
 #                 frames to <out>/screenshots (implies --windowed).
+#   8. editor     only with --editor: opens the Unity editor (its window shows for ~1-2 min per run)
+#                 and runs the smoke test in Play mode with offline play, once opened on the launcher
+#                 and once on Playground (Play must start from the launcher either way). Needs
+#                 EDITORPLAY PASS and zero exceptions anywhere in the editor log.
 #
 # Unity's process exit code is not trusted (it can be 0 with compile errors); every step reads its log.
 set -u
@@ -29,12 +34,14 @@ PROJECT="$(cd "$HERE/.." && pwd)"
 OUT=""
 WINDOWED=0
 SCREENSHOTS=0
+EDITOR=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$(cd "$2" && pwd)"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --windowed) WINDOWED=1; shift ;;
     --screenshots) WINDOWED=1; SCREENSHOTS=1; shift ;;
+    --editor) EDITOR=1; shift ;;
     *) echo "unknown argument: $1"; exit 2 ;;
   esac
 done
@@ -62,12 +69,24 @@ run_unity() {
 }
 
 # 1. compile
+compile_clean() {
+  grep -q 'Exiting batchmode successfully' "$1" && ! grep -qE 'compilationhadfailure: True|error CS[0-9]+|BCE[0-9]+' "$1"
+}
 log="$OUT/1-compile.log"
 run_unity "$log"
-if grep -q 'Exiting batchmode successfully' "$log" && ! grep -qE 'compilationhadfailure: True|error CS[0-9]+|BCE[0-9]+' "$log"; then
+if compile_clean "$log"; then
   pass "compile"
 else
-  fail "compile - see $log"
+  # In an existing working copy, the first compile after scripts are added or removed runs on
+  # Unity's stale file list and fails (e.g. CS0234 for a just-added namespace) before Unity
+  # refreshes. A real error fails again; fresh clones never hit this.
+  rerun="$OUT/1-compile-rerun.log"
+  run_unity "$rerun"
+  if compile_clean "$rerun"; then
+    pass "compile (first run failed on Unity's stale script list after files were added/removed; rerun clean - see $log)"
+  else
+    fail "compile - see $log and $rerun"
+  fi
 fi
 
 # 2. scenes
@@ -138,6 +157,20 @@ else
   fail "smoke (headless) - skipped, no build"
 fi
 
+# 6b. smoke via the launcher's Play button, offline play mode (-offlinePlay)
+if [ "$built" -eq 1 ]; then
+  log="$OUT/6b-smoke-offline-play.log"
+  timeout 300 "$player" -batchmode -offlinePlay -offlineSmokeTest -smokeSeconds 10 > "$log" 2>&1
+  grep -E '^SMOKE: (scene=|problem)' "$log" | tr -d '\r' | sed 's/^/        /'
+  if grep -q '^SMOKE: PASS' "$log" && grep -q "entering via the launcher's Play button" "$log"; then
+    pass "smoke (offline play, through the Play button)"
+  else
+    fail "smoke (offline play) - see $log"
+  fi
+else
+  fail "smoke (offline play) - skipped, no build"
+fi
+
 # stop_player <bash pid> - end a player started in the background
 stop_player() {
   local winpid
@@ -189,6 +222,23 @@ if [ "$WINDOWED" -eq 1 ]; then
   else
     fail "smoke (windowed) - skipped, no build"
   fi
+fi
+
+# 8. editor Play mode (only with --editor): offline play from the launcher scene and from Playground
+if [ "$EDITOR" -eq 1 ]; then
+  for start in "Assets/Scenes/Launcher 1.unity" "Assets/Scenes/Playground.unity"; do
+    name=$(basename "$start" .unity | tr ' ' '-')
+    log="$OUT/8-editor-play-$name.log"
+    timeout 600 "$UNITY" -projectPath "$(win "$PROJECT")" -logFile "$(win "$log")" -offlinePlay -offlineSmokeTest -smokeSeconds 8 \
+      -executeMethod Wulfram.EditorTools.WulframEditorPlayCheck.Run -scenePath "$start"
+    tr -d '\r' < "$log" | grep -E '^(EDITORPLAY: result|SMOKE: (scene=|problem))' | sed 's/^/        /'
+    exceptions=$(tr -d '\r' < "$log" | grep -cE '^[A-Za-z.]*Exception')
+    if tr -d '\r' < "$log" | grep -q '^EDITORPLAY: result PASS' && [ "$exceptions" -eq 0 ]; then
+      pass "editor Play mode, opened on $name ($exceptions exceptions in the editor log)"
+    else
+      fail "editor Play mode, opened on $name ($exceptions exceptions in the editor log) - see $log"
+    fi
+  done
 fi
 
 echo
