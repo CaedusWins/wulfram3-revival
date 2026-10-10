@@ -220,16 +220,15 @@ namespace Wulfram.SmokeTest
                     tanksSeen = FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>().Length;
                 }
                 Debug.Log("SMOKE: sees " + playersSeen + " player(s) and " + tanksSeen + " tank(s), expected " + expectPlayers);
-                float hold = Time.realtimeSinceStartup + 10f;
-                while (Time.realtimeSinceStartup < hold)
-                {
-                    yield return null;
-                }
             }
+
             // M2: damage both ways, through the game's real network path - the call AutoCannon makes on
             // a hit (HitPointsManager.TellServerTakeDamage -> RPC to the master client, which applies
-            // it and broadcasts UpdateHealth to all). Each client hits the other tank for 10 once;
-            // both clients must then see both tanks at 90. Only aiming/raycasting is skipped.
+            // it and broadcasts UpdateHealth to all). Each client hits the other tank for 10 once. Both
+            // tanks start at 100 and nothing else damages them, so each client must see BOTH tanks dip
+            // to 90 or lower. The LOWEST health seen counts, sampled from the moment both players are
+            // present: HealthRegenerator heals the master's own tank, so "exactly 90 right now" failed
+            // when one client was slower (seen 2026-10-10). Only aiming/raycasting is skipped.
             string damage = "";
             bool damageOk = true;
             if (online && expectPlayers > 1)
@@ -253,17 +252,28 @@ namespace Wulfram.SmokeTest
                 }
                 else
                 {
-                    int mineBefore = mine.health;
-                    int otherBefore = other.health;
-                    other.TellServerTakeDamage(10);
-                    float waitDamage = Time.realtimeSinceStartup + 30f;
-                    while ((mine.health != 90 || other.health != 90) && Time.realtimeSinceStartup < waitDamage)
+                    int lowestMine = mine.health;
+                    int lowestOther = other.health;
+                    // Hold so both clients are surely in the room before anyone shoots.
+                    float hold = Time.realtimeSinceStartup + 10f;
+                    while (Time.realtimeSinceStartup < hold)
                     {
                         yield return null;
+                        lowestMine = Mathf.Min(lowestMine, mine.health);
+                        lowestOther = Mathf.Min(lowestOther, other.health);
                     }
-                    damageOk = mine.health == 90 && other.health == 90;
-                    damage = " damage: master=" + PhotonNetwork.isMasterClient + " own " + mineBefore + "->" + mine.health +
-                        " other " + otherBefore + "->" + other.health;
+
+                    other.TellServerTakeDamage(10);
+                    float waitDamage = Time.realtimeSinceStartup + 30f;
+                    while ((lowestMine > 90 || lowestOther > 90) && Time.realtimeSinceStartup < waitDamage)
+                    {
+                        yield return null;
+                        lowestMine = Mathf.Min(lowestMine, mine.health);
+                        lowestOther = Mathf.Min(lowestOther, other.health);
+                    }
+                    damageOk = lowestMine <= 90 && lowestOther <= 90;
+                    damage = " damage: master=" + PhotonNetwork.isMasterClient + " own lowest " + lowestMine + " now " + mine.health +
+                        ", other lowest " + lowestOther + " now " + other.health;
                     Debug.Log("SMOKE:" + damage);
 
                     // Let the other client finish seeing its result before this one leaves.
