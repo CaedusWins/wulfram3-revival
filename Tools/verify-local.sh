@@ -232,6 +232,9 @@ if [ "$WINDOWED" -eq 1 ]; then
     log="$OUT/7-smoke-windowed.log"
     "$player" -screen-fullscreen 0 -screen-width 1280 -screen-height 720 -offlineSmokeTest -smokeSeconds 6 ${shots[@]+"${shots[@]}"} > "$log" 2>&1 &
     pid=$!
+    # Read the Windows PID only after a moment: read right after launch it named another process
+    # (press-play then reported "neither the launch dialog nor a game window appeared").
+    sleep 2
     winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(win "$HERE/press-play.ps1")" -ProcessId "$winpid" -TimeoutSeconds 40 | tr -d '\r' | sed 's/^/        /'
     waited=0
