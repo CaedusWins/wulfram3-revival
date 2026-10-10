@@ -23,6 +23,9 @@ namespace Wulfram.SmokeTest
     ///
     ///   Wulfram3.exe -batchmode -offlineSmokeTest [-smokeSeconds 15]
     ///
+    /// Add -offlinePlay to enter through the launcher's real Play button instead of creating the
+    /// room directly (tests the offline play mode, Wulfram.OfflinePlay.OfflinePlay).
+    ///
     /// Run it once without -batchmode as well: only a rendered frame makes the probe
     /// visible, which is what reaches the body of TargetInfoController.LateUpdate
     /// (reported as probePanelShown=True).
@@ -129,8 +132,25 @@ namespace Wulfram.SmokeTest
                 }
                 yield return StartCoroutine(Shot("1-launcher"));
             }
-            PhotonNetwork.offlineMode = true;
-            PhotonNetwork.CreateRoom("smoke");
+            if (Wulfram.OfflinePlay.OfflinePlay.Active)
+            {
+                // With -offlinePlay, go in exactly the way a player does: the launcher's Play
+                // button handler (guest login -> Connect -> JoinRandomRoom, offline).
+                Com.Wulfram3.LauncherWithLogin launcher = FindObjectOfType<Com.Wulfram3.LauncherWithLogin>();
+                Debug.Log("SMOKE: entering via the launcher's Play button (offline play)" + (launcher == null ? " - NO LAUNCHER FOUND" : ""));
+                if (launcher != null)
+                {
+                    launcher.Login();
+                }
+            }
+            else
+            {
+                if (!PhotonNetwork.offlineMode)
+                {
+                    PhotonNetwork.offlineMode = true;
+                }
+                PhotonNetwork.CreateRoom("smoke");
+            }
 
             float deadline = Time.realtimeSinceStartup + seconds;
             while (SceneManager.GetActiveScene().name != "Playground" && Time.realtimeSinceStartup < deadline)
@@ -333,7 +353,7 @@ namespace Wulfram.SmokeTest
             }
 
             bool pass = scene == "Playground" && playerSpawned && missing == 0 && tabPicks > 0 &&
-                tabInvalid == 0 && returnedToLauncher && exceptions == 0;
+                tabInvalid == 0 && returnedToLauncher && exceptions == 0 && errors == 0;
             Debug.Log("SMOKE: " + (pass ? "PASS" : "FAIL"));
             Application.Quit();
         }
