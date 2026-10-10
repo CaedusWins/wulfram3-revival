@@ -39,3 +39,7 @@ webgl/index.html
 Assets/Models/Environment/Materials.meta
 Assets/Models/Environment/Materials.meta
 *.log
+
+# Photon App ID - local only, never committed (public repo). See Assets/Networking/PhotonCloudSettings.cs
+/Assets/Resources/PhotonAppId.local.txt
+/Assets/Resources/PhotonAppId.local.txt.meta
