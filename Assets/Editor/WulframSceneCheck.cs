@@ -134,11 +134,22 @@ namespace Wulfram.EditorTools
                     if (behaviours[b] != null && (ns == null || !ns.StartsWith("UnityEngine")))
                     {
                         Debug.Log("WulframSceneCheck: " + path + " script " + behaviours[b].GetType().FullName +
-                            " on " + behaviours[b].gameObject.name);
+                            " on " + PathOf(behaviours[b].transform) + (behaviours[b].gameObject.activeSelf ? "" : " [inactive]"));
                     }
                 }
             }
             Debug.Log("WulframSceneCheck: " + path + " - root objects: " + roots.Length + ", missing script references: " + missing);
+        }
+
+        private static string PathOf(Transform t)
+        {
+            string p = t.name;
+            while (t.parent != null)
+            {
+                t = t.parent;
+                p = t.name + "/" + p;
+            }
+            return p;
         }
 
         private static int ReportMissingScripts(GameObject go, string hierarchyPath)
