@@ -2,7 +2,7 @@
 # Local verification gate: everything "verified" means before a merge upward
 # (CLAUDE.md -> "QA & Merge Process"). Needs Unity 2017.3.0f3; run from Git Bash on Windows.
 #
-#   Tools/verify-local.sh [--project <path>] [--out <dir>] [--windowed] [--screenshots] [--editor]
+#   Tools/verify-local.sh [--project <path>] [--out <dir>] [--windowed] [--screenshots] [--editor] [--online]
 #
 # Steps - each one fails loudly, and the script exits non-zero if any step failed:
 #   1. compile    batch-mode import + compile. ANY compiler failure fails it
@@ -14,6 +14,9 @@
 #                 warning except the known one ('Sun' in Resources/Terrains/Tron.prefab).
 #   6. smoke      the built player with -batchmode -offlineSmokeTest: "SMOKE: PASS".
 #   6b.           the same with -offlinePlay: enters through the launcher's real Play button.
+#   6c. online   only with --online (needs the Photon App ID + internet): M2 - two clients through the
+#                 real Play button on Photon Cloud must share one room, see 2 players + 2 tanks, and
+#                 deal damage both ways via the game's network damage path (TellServerTakeDamage).
 #   7. smoke-win  only with --windowed: the same in a 1280x720 window (it is on screen for ~30s -
 #                 don't click it), and probePanelShown=True is required too: only a rendered frame
 #                 reaches the body of TargetInfoController.LateUpdate. If the game first shows Unity's
@@ -35,6 +38,7 @@ OUT=""
 WINDOWED=0
 SCREENSHOTS=0
 EDITOR=0
+ONLINE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$(cd "$2" && pwd)"; shift 2 ;;
@@ -42,6 +46,7 @@ while [ $# -gt 0 ]; do
     --windowed) WINDOWED=1; shift ;;
     --screenshots) WINDOWED=1; SCREENSHOTS=1; shift ;;
     --editor) EDITOR=1; shift ;;
+    --online) ONLINE=1; shift ;;
     *) echo "unknown argument: $1"; exit 2 ;;
   esac
 done
@@ -169,6 +174,37 @@ if [ "$built" -eq 1 ]; then
   fi
 else
   fail "smoke (offline play) - skipped, no build"
+fi
+
+# 6c. M2 online (only with --online): two clients through the real Play button on Photon Cloud
+if [ "$ONLINE" -eq 1 ]; then
+  if [ "$built" -eq 1 ]; then
+    # The second client starts 8s later: two clients pressing Play at the same instant can each
+    # create their own room (JoinRandomRoom finds none yet) and never meet.
+    logA="$OUT/6c-online-client-A.log"
+    logB="$OUT/6c-online-client-B.log"
+    timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logA" 2>&1 &
+    pidA=$!
+    sleep 8
+    timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logB" 2>&1 &
+    pidB=$!
+    wait "$pidA"
+    wait "$pidB"
+    for l in "$logA" "$logB"; do
+      grep -E '^(PhotonCloud|SMOKE: (damage|problem))' "$l" | tr -d '\r' | sed 's/^/        /'
+    done
+    roomA=$(grep -oE 'room=[0-9a-f-]+' "$logA" | head -1)
+    roomB=$(grep -oE 'room=[0-9a-f-]+' "$logB" | head -1)
+    if grep -q '^SMOKE: PASS' "$logA" && grep -q '^SMOKE: PASS' "$logB" && [ -n "$roomA" ] && [ "$roomA" = "$roomB" ]; then
+      pass "online M2: two clients in one Photon Cloud room ($roomA), damage both ways"
+    elif grep -q '^PhotonCloud: no Photon App ID' "$logA"; then
+      fail "online M2 - no Photon App ID (Assets/Resources/PhotonAppId.local.txt or WULFRAM_PHOTON_APPID)"
+    else
+      fail "online M2 - see $logA and $logB (rooms: '${roomA}' / '${roomB}')"
+    fi
+  else
+    fail "online M2 - skipped, no build"
+  fi
 fi
 
 # stop_player <bash pid> - end a player started in the background
