@@ -53,6 +53,19 @@ namespace Wulfram.EditorTools
             }
             Application.logMessageReceived += OnLog;
             EditorApplication.update += Watch;
+            // AutoSaver (MHLab plugin) saves the open scene when Play is pressed and every 2 minutes,
+            // and Playground opens dirty in the editor - so a check run would rewrite Playground.unity.
+            // Turn it off for this editor session only (DeactivateAutosaver doesn't touch the
+            // user's EditorPrefs); delayCall runs after AutoSaver's own [InitializeOnLoad] setup.
+            EditorApplication.delayCall += StopAutoSaver;
+        }
+
+        private static void StopAutoSaver()
+        {
+            if (AutoSaver.IsEnabled)
+            {
+                AutoSaver.DeactivateAutosaver();
+            }
         }
 
         public static void Run()
@@ -105,6 +118,7 @@ namespace Wulfram.EditorTools
                 if (age >= SettleSeconds && !EditorApplication.isCompiling && !EditorApplication.isUpdating &&
                     !EditorApplication.isPlayingOrWillChangePlaymode)
                 {
+                    StopAutoSaver();
                     EditorPrefs.SetBool(Key("PlayPressed"), true);
                     Debug.Log("EDITORPLAY: editor settled after " + Math.Round(age) + "s - entering Play mode");
                     EditorApplication.isPlaying = true;
