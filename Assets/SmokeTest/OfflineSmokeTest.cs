@@ -41,6 +41,8 @@ namespace Wulfram.SmokeTest
         private int errors;
         private float seconds = 15f;
         private string shotsDir;
+        private bool online;
+        private int expectPlayers = 1;
         private readonly System.Collections.Generic.List<string> firstProblems = new System.Collections.Generic.List<string>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -50,11 +52,21 @@ namespace Wulfram.SmokeTest
             bool enabled = false;
             float seconds = 15f;
             string shotsDir = null;
+            bool online = false;
+            int expectPlayers = 1;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "-offlineSmokeTest")
                 {
                     enabled = true;
+                }
+                if (args[i] == "-smokeOnline")
+                {
+                    online = true;
+                }
+                if (args[i] == "-smokeExpectPlayers" && i + 1 < args.Length)
+                {
+                    int.TryParse(args[i + 1], out expectPlayers);
                 }
                 if (args[i] == "-smokeSeconds" && i + 1 < args.Length)
                 {
@@ -76,6 +88,8 @@ namespace Wulfram.SmokeTest
             OfflineSmokeTest test = go.AddComponent<OfflineSmokeTest>();
             test.seconds = seconds;
             test.shotsDir = shotsDir;
+            test.online = online;
+            test.expectPlayers = Mathf.Max(1, expectPlayers);
         }
 
         // Saves the next rendered frame as <shotsDir>/<name>.png (no-op without -smokeScreenshots).
@@ -132,12 +146,14 @@ namespace Wulfram.SmokeTest
                 }
                 yield return StartCoroutine(Shot("1-launcher"));
             }
-            if (Wulfram.OfflinePlay.OfflinePlay.Active)
+            if (Wulfram.OfflinePlay.OfflinePlay.Active || online)
             {
-                // With -offlinePlay, go in exactly the way a player does: the launcher's Play
-                // button handler (guest login -> Connect -> JoinRandomRoom, offline).
+                // Go in exactly the way a player does: the launcher's Play button handler (guest
+                // login -> Connect -> ConnectUsingSettings / JoinRandomRoom). With -offlinePlay that
+                // is PUN offline mode; with -smokeOnline it is the real Photon Cloud.
                 Com.Wulfram3.LauncherWithLogin launcher = FindObjectOfType<Com.Wulfram3.LauncherWithLogin>();
-                Debug.Log("SMOKE: entering via the launcher's Play button (offline play)" + (launcher == null ? " - NO LAUNCHER FOUND" : ""));
+                Debug.Log("SMOKE: entering via the launcher's Play button (" + (online ? "online, Photon Cloud" : "offline play") + ")" +
+                    (launcher == null ? " - NO LAUNCHER FOUND" : ""));
                 if (launcher != null)
                 {
                     launcher.Login();
@@ -152,7 +168,8 @@ namespace Wulfram.SmokeTest
                 PhotonNetwork.CreateRoom("smoke");
             }
 
-            float deadline = Time.realtimeSinceStartup + seconds;
+            // Connecting to the cloud takes longer than an offline room.
+            float deadline = Time.realtimeSinceStartup + (online ? Mathf.Max(seconds, 45f) : seconds);
             while (SceneManager.GetActiveScene().name != "Playground" && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
@@ -187,6 +204,82 @@ namespace Wulfram.SmokeTest
                     }
                 }
             }
+
+            // With -smokeExpectPlayers N (online), wait until N players are in the room and N tanks
+            // exist here - the M2 proof that clients see each other - then hold a moment so the other
+            // clients can see this one too before it leaves.
+            int playersSeen = PhotonNetwork.playerList.Length;
+            int tanksSeen = FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>().Length;
+            if (expectPlayers > 1)
+            {
+                float waitPlayers = Time.realtimeSinceStartup + Mathf.Max(seconds, 90f);
+                while ((playersSeen < expectPlayers || tanksSeen < expectPlayers) && Time.realtimeSinceStartup < waitPlayers)
+                {
+                    yield return null;
+                    playersSeen = PhotonNetwork.playerList.Length;
+                    tanksSeen = FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>().Length;
+                }
+                Debug.Log("SMOKE: sees " + playersSeen + " player(s) and " + tanksSeen + " tank(s), expected " + expectPlayers);
+                float hold = Time.realtimeSinceStartup + 10f;
+                while (Time.realtimeSinceStartup < hold)
+                {
+                    yield return null;
+                }
+            }
+            // M2: damage both ways, through the game's real network path - the call AutoCannon makes on
+            // a hit (HitPointsManager.TellServerTakeDamage -> RPC to the master client, which applies
+            // it and broadcasts UpdateHealth to all). Each client hits the other tank for 10 once;
+            // both clients must then see both tanks at 90. Only aiming/raycasting is skipped.
+            string damage = "";
+            bool damageOk = true;
+            if (online && expectPlayers > 1)
+            {
+                GameObject me = Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance;
+                Com.Wulfram3.HitPointsManager mine = me == null ? null : me.GetComponent<Com.Wulfram3.HitPointsManager>();
+                Com.Wulfram3.HitPointsManager other = null;
+                Com.Wulfram3.PlayerMovementManager[] tanks = FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>();
+                for (int i = 0; i < tanks.Length; i++)
+                {
+                    if (tanks[i].gameObject != me)
+                    {
+                        other = tanks[i].GetComponent<Com.Wulfram3.HitPointsManager>();
+                    }
+                }
+
+                if (mine == null || other == null)
+                {
+                    damageOk = false;
+                    damage = " damage: no " + (mine == null ? "own" : "other") + " tank";
+                }
+                else
+                {
+                    int mineBefore = mine.health;
+                    int otherBefore = other.health;
+                    other.TellServerTakeDamage(10);
+                    float waitDamage = Time.realtimeSinceStartup + 30f;
+                    while ((mine.health != 90 || other.health != 90) && Time.realtimeSinceStartup < waitDamage)
+                    {
+                        yield return null;
+                    }
+                    damageOk = mine.health == 90 && other.health == 90;
+                    damage = " damage: master=" + PhotonNetwork.isMasterClient + " own " + mineBefore + "->" + mine.health +
+                        " other " + otherBefore + "->" + other.health;
+                    Debug.Log("SMOKE:" + damage);
+
+                    // Let the other client finish seeing its result before this one leaves.
+                    float settleDamage = Time.realtimeSinceStartup + 5f;
+                    while (Time.realtimeSinceStartup < settleDamage)
+                    {
+                        yield return null;
+                    }
+                }
+            }
+
+            bool cloudRoom = PhotonNetwork.inRoom && !PhotonNetwork.offlineMode;
+            string net = !online ? "" : " net: cloudRoom=" + cloudRoom + " region=" + PhotonNetwork.CloudRegion +
+                " ping=" + PhotonNetwork.GetPing() + "ms room=" + (PhotonNetwork.room == null ? "none" : PhotonNetwork.room.Name) +
+                " players=" + playersSeen + " tanks=" + tanksSeen + damage;
+            bool netOk = !online || (cloudRoom && playersSeen >= expectPlayers && tanksSeen >= expectPlayers && damageOk);
 
             GameObject player = Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance;
             bool playerSpawned = player != null;
@@ -346,14 +439,14 @@ namespace Wulfram.SmokeTest
                 " missingScripts=" + missing + " tabPicks=" + tabPicks + " tabInvalid=" + tabInvalid +
                 " probeVisibleFrames=" + probeVisibleFrames + " probePanelShown=" + probePanelShown +
                 " returnedToLauncher=" + returnedToLauncher + " (" + SceneManager.GetActiveScene().name + ")" +
-                " exceptions=" + exceptions + " errors=" + errors);
+                " exceptions=" + exceptions + " errors=" + errors + net);
             for (int i = 0; i < firstProblems.Count; i++)
             {
                 Debug.Log("SMOKE: problem " + (i + 1) + " - " + firstProblems[i]);
             }
 
             bool pass = scene == "Playground" && playerSpawned && missing == 0 && tabPicks > 0 &&
-                tabInvalid == 0 && returnedToLauncher && exceptions == 0 && errors == 0;
+                tabInvalid == 0 && returnedToLauncher && exceptions == 0 && errors == 0 && netOk;
             Debug.Log("SMOKE: " + (pass ? "PASS" : "FAIL"));
             Application.Quit();
         }

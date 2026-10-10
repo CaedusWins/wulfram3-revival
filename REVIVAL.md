@@ -31,12 +31,14 @@ This is the **human-readable narrative** of the revival effort: what's happened,
 - **2026-10-07 (evening)** — **M1 merged.** The bring-up work landed in the revival branch (PR #1), but only after the final check ran on a completely fresh copy of the project, built from nothing but what's in git: it compiled, built, booted into the arena and back, and passed every test. That last check caught two final details. A batch of leftover folder placeholders that confused fresh copies was cleaned up, and a "hang" turned out to be the game's own settings window waiting for someone to press Play. The first screenshots and a 360° clip of the revived game running were captured along the way.
 - **2026-10-10** — **Play it without a server.** Until the new multiplayer server is set up (M2), the game can now be played offline on one machine. In Unity, switch on *Wulfram → Offline Play* and press Play; in a built copy, start it with `-offlinePlay`. Then hit Play on the login screen and drive around the arena. Testing now also covers playing inside the Unity editor, and two editor quirks were found along the way: a plugin that silently re-saves the arena scene, and an editor-only missing-script warning. Both are documented for follow-up. Work is now strictly one feature branch per task, merged without rewriting history and tagged at milestones, so any change can be undone cleanly.
 
+- **2026-10-10 (later)** — **Two players, one match: M2 works.** With a free Photon account, the game's original 2018 networking connects to Photon's servers today, so no risky library upgrade was needed. An automated test now launches two copies of the game: they land in the same online match on opposite teams, see each other's tanks, and each hits the other, with the damage showing up on both screens. The Photon key stays on the owner's machine and never goes into the public repo, and a CI check enforces it. In-game chat is off until the project gets its own Photon chat app.
 
 ## What's next
 
 1. **Owner action:** revoke the leaked Discord webhook in Discord (Server Settings → Integrations → Webhooks). Nothing in the repo can fix this; it's been public since 2017.
-2. **Owner action:** create a free Photon Cloud app (photonengine.com) and share its App ID. M2 needs it.
-3. `feature/m2-photon-pun2-migration`: bring it up to date with the revival branch first, then a fresh Photon Cloud app and PUN Classic → PUN2. That's M2, a first local match between two clients. Photon Chat moves to the new app at the same time.
+2. Merge M2 (`feature/m2-photon-cloud`) once its full check passes on a fresh copy, then try a real two-person match. The build is shared privately because it contains the Photon key.
+3. Chat: a second free Photon app (type **Chat**) brings in-game chat back.
+4. Later: a small Unity engine step (2017.3 → 2017.4 LTS), which opens the door to Photon's newer PUN2 library and fixes.
 
 ## Maintenance note
 
