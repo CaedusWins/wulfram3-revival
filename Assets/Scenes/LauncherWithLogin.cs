@@ -143,8 +143,7 @@ namespace Com.Wulfram3 {
             // we check if we are connected or not, we join if we are , else we initiate the connection to the server.
             if (PhotonNetwork.connected) {
 				
-                // #Critical we need at this point to attempt joining a Random Room. If it fails, we'll get notified in OnPhotonRandomJoinFailed() and we'll create one.
-                PhotonNetwork.JoinRandomRoom();
+                JoinArena();
             } else {
                 // #Critical, we must first and foremost connect to Photon Online Server.
                 PhotonNetwork.ConnectUsingSettings(_gameVersion);
@@ -253,8 +252,7 @@ namespace Com.Wulfram3 {
             // this case where isConnecting is false is typically when you lost or quit the game, when this level is loaded, OnConnectedToMaster will be called, in that case
             // we don't want to do anything.
             if (isConnecting) {
-                // #Critical: The first we try to do is to join a potential existing room. If there is, good, else, we'll be called back with OnPhotonRandomJoinFailed()
-                PhotonNetwork.JoinRandomRoom();
+                JoinArena();
             }
 
         }
@@ -273,11 +271,28 @@ namespace Com.Wulfram3 {
             Debug.LogWarning("DemoAnimator/Launcher: OnDisconnectedFromPhoton() was called by PUN");
         }
 
-        public override void OnPhotonRandomJoinFailed(object[] codeAndMsg) {
-            Debug.Log("DemoAnimator/Launcher:OnPhotonRandomJoinFailed() was called by PUN. No random room available, so we create one.\nCalling: PhotonNetwork.CreateRoom(null, new RoomOptions() {maxPlayers = 4}, null);");
+        /// <summary>
+        /// Join the arena room by name, creating it if nobody is there yet. The server does the
+        /// join-or-create in one step, so two players pressing Play at the same instant end up in
+        /// the same room. (JoinRandomRoom + CreateRoom could not promise that: both could find no
+        /// room yet and each create their own.)
+        /// </summary>
+        private void JoinArena() {
+            string room = Wulfram.Networking.PhotonCloudSettings.RoomName;
+            Debug.Log("Launcher: joining or creating room '" + room + "'");
+            PhotonNetwork.JoinOrCreateRoom(room, new RoomOptions() { MaxPlayers = Wulfram.Networking.PhotonCloudSettings.MaxPlayers(MaxPlayersPerRoom) }, TypedLobby.Default);
+        }
 
-            // #Critical: we failed to join a random room, maybe none exists or they are all full. No worries, we create a new room.
-            PhotonNetwork.CreateRoom(null, new RoomOptions() { MaxPlayers = MaxPlayersPerRoom }, null);
+        public override void OnPhotonJoinRoomFailed(object[] codeAndMsg) {
+            // Usually the arena is full (MaxPlayersPerRoom). Fall back to any other open room.
+            Debug.Log("Launcher: could not join room '" + Wulfram.Networking.PhotonCloudSettings.RoomName + "' (" +
+                codeAndMsg[0] + ": " + codeAndMsg[1] + ") - trying any open room");
+            PhotonNetwork.JoinRandomRoom();
+        }
+
+        public override void OnPhotonRandomJoinFailed(object[] codeAndMsg) {
+            Debug.Log("Launcher: no open room either (" + codeAndMsg[0] + ": " + codeAndMsg[1] + ") - creating a new one");
+            PhotonNetwork.CreateRoom(null, new RoomOptions() { MaxPlayers = Wulfram.Networking.PhotonCloudSettings.MaxPlayers(MaxPlayersPerRoom) }, null);
         }
 
 

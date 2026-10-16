@@ -149,7 +149,7 @@ namespace Wulfram.SmokeTest
             if (Wulfram.OfflinePlay.OfflinePlay.Active || online)
             {
                 // Go in exactly the way a player does: the launcher's Play button handler (guest
-                // login -> Connect -> ConnectUsingSettings / JoinRandomRoom). With -offlinePlay that
+                // login -> Connect -> ConnectUsingSettings / JoinOrCreateRoom). With -offlinePlay that
                 // is PUN offline mode; with -smokeOnline it is the real Photon Cloud.
                 Com.Wulfram3.LauncherWithLogin launcher = FindObjectOfType<Com.Wulfram3.LauncherWithLogin>();
                 Debug.Log("SMOKE: entering via the launcher's Play button (" + (online ? "online, Photon Cloud" : "offline play") + ")" +
