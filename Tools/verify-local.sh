@@ -3,6 +3,11 @@
 # (CLAUDE.md -> "QA & Merge Process"). Needs Unity 2017.3.0f3; run from Git Bash on Windows.
 #
 #   Tools/verify-local.sh [--project <path>] [--out <dir>] [--windowed] [--screenshots] [--editor] [--online]
+#                         [--stress N]
+#
+# Everything it prints is also saved as <out>/SUMMARY.txt (date, commit, flags, every step, the
+# verdict), next to the step logs. --stress N runs each built-player smoke step (6, 6b, 6c) N times,
+# each run with its own log and PASS/FAIL line, to catch flaky results.
 #
 # Steps - each one fails loudly, and the script exits non-zero if any step failed:
 #   1. compile    batch-mode import + compile. ANY compiler failure fails it
@@ -16,7 +21,9 @@
 #   6b.           the same with -offlinePlay: enters through the launcher's real Play button.
 #   6c. online   only with --online (needs the Photon App ID + internet): M2 - two clients through the
 #                 real Play button on Photon Cloud must share one room, see 2 players + 2 tanks, and
-#                 deal damage both ways via the game's network damage path (TellServerTakeDamage).
+#                 deal damage both ways via the game's network damage path (TellServerTakeDamage),
+#                 and each own tank must regenerate. The clients run the checks in lockstep
+#                 (barriers on a player property), and each client's verdict is reported.
 #   7. smoke-win  only with --windowed: the same in a 1280x720 window (it is on screen for ~30s -
 #                 don't click it), and probePanelShown=True is required too: only a rendered frame
 #                 reaches the body of TargetInfoController.LateUpdate. If the game first shows Unity's
@@ -26,7 +33,9 @@
 #   8. editor     only with --editor: opens the Unity editor (its window shows for ~1-2 min per run)
 #                 and runs the smoke test in Play mode with offline play, once opened on the launcher
 #                 and once on Playground (Play must start from the launcher either way). Needs
-#                 EDITORPLAY PASS and zero exceptions anywhere in the editor log.
+#                 EDITORPLAY PASS and zero exceptions anywhere in the editor log. If a run fails
+#                 and its log shows Unity's license refresh forcing a script reload, it is rerun
+#                 once (noted in the output); the rerun must pass.
 #
 # Unity's process exit code is not trusted (it can be 0 with compile errors); every step reads its log.
 set -u
@@ -34,11 +43,13 @@ set -u
 UNITY="${UNITY:-C:/Program Files/Unity/Editor/Unity.exe}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PROJECT="$(cd "$HERE/.." && pwd)"
+ORIG_ARGS=("$@")
 OUT=""
 WINDOWED=0
 SCREENSHOTS=0
 EDITOR=0
 ONLINE=0
+STRESS=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$(cd "$2" && pwd)"; shift 2 ;;
@@ -47,6 +58,9 @@ while [ $# -gt 0 ]; do
     --screenshots) WINDOWED=1; SCREENSHOTS=1; shift ;;
     --editor) EDITOR=1; shift ;;
     --online) ONLINE=1; shift ;;
+    --stress)
+      case "${2:-}" in ''|*[!0-9]*) echo "--stress needs a number"; exit 2 ;; esac
+      STRESS="$2"; [ "$STRESS" -ge 1 ] || STRESS=1; shift 2 ;;
     *) echo "unknown argument: $1"; exit 2 ;;
   esac
 done
@@ -58,7 +72,21 @@ if [ ! -f "$UNITY" ]; then
   echo "Unity not found at $UNITY (set UNITY=...)"
   exit 2
 fi
+
+# The run's report: everything this script prints is also saved to <out>/SUMMARY.txt, next to the
+# step logs, so the verdict outlives the terminal. (The script runs itself once more, piped to tee.)
+if [ -z "${WULFRAM_VERIFY_REPORTING:-}" ]; then
+  WULFRAM_VERIFY_REPORTING=1 WULFRAM_VERIFY_FLAGS="${ORIG_ARGS[*]-}" \
+    bash "$0" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"} --out "$OUT" 2>&1 | tee "$OUT/SUMMARY.txt"
+  exit "${PIPESTATUS[0]}"
+fi
+
+echo "verify-local report"
+echo "date:    $(date '+%Y-%m-%d %H:%M:%S %z')"
 echo "project: $PROJECT"
+echo "commit:  $(git -C "$PROJECT" rev-parse HEAD 2>/dev/null || echo unknown) ($(git -C "$PROJECT" status --porcelain 2>/dev/null | wc -l) uncommitted change(s))"
+echo "flags:   ${WULFRAM_VERIFY_FLAGS-}"
+echo "stress:  $STRESS run(s) of each player smoke step"
 echo "logs:    $OUT"
 
 failures=0
@@ -148,63 +176,76 @@ else
   built=0
 fi
 
+# Steps 6-6c run the built player; with --stress N each runs N times, every run with its own log
+# (suffix -rK) and its own PASS/FAIL line, so a flaky step shows up as a failed repeat.
+# run_tag <k> - "" for a single run, "-r<k>" when stressed; run_label <k> - " (run k/N)" likewise
+run_tag() { [ "$STRESS" -gt 1 ] && echo "-r$1"; }
+run_label() { [ "$STRESS" -gt 1 ] && echo " (run $1/$STRESS)"; }
+
 # 6. smoke (headless)
-if [ "$built" -eq 1 ]; then
-  log="$OUT/6-smoke.log"
+smoke_headless() {
+  local log="$OUT/6-smoke$(run_tag "$1").log"
   timeout 300 "$player" -batchmode -offlineSmokeTest -smokeSeconds 10 > "$log" 2>&1
   grep -E '^SMOKE: (scene=|problem)' "$log" | tr -d '\r' | sed 's/^/        /'
   if grep -q '^SMOKE: PASS' "$log"; then
-    pass "smoke (headless)"
+    pass "smoke (headless)$(run_label "$1")"
   else
-    fail "smoke (headless) - see $log"
+    fail "smoke (headless)$(run_label "$1") - see $log"
   fi
-else
-  fail "smoke (headless) - skipped, no build"
-fi
+}
 
 # 6b. smoke via the launcher's Play button, offline play mode (-offlinePlay)
-if [ "$built" -eq 1 ]; then
-  log="$OUT/6b-smoke-offline-play.log"
+smoke_offline_play() {
+  local log="$OUT/6b-smoke-offline-play$(run_tag "$1").log"
   timeout 300 "$player" -batchmode -offlinePlay -offlineSmokeTest -smokeSeconds 10 > "$log" 2>&1
   grep -E '^SMOKE: (scene=|problem)' "$log" | tr -d '\r' | sed 's/^/        /'
   if grep -q '^SMOKE: PASS' "$log" && grep -q "entering via the launcher's Play button" "$log"; then
-    pass "smoke (offline play, through the Play button)"
+    pass "smoke (offline play, through the Play button)$(run_label "$1")"
   else
-    fail "smoke (offline play) - see $log"
+    fail "smoke (offline play)$(run_label "$1") - see $log"
+  fi
+}
+
+# 6c. M2 online (only with --online): two clients through the real Play button on Photon Cloud.
+# The second client starts 8s later: two clients pressing Play at the same instant can each
+# create their own room (JoinRandomRoom finds none yet) and never meet. Each client's own verdict
+# is checked separately from the shared-room check, so neither can hide the other.
+online_pair() {
+  local logA="$OUT/6c-online-client-A$(run_tag "$1").log" logB="$OUT/6c-online-client-B$(run_tag "$1").log"
+  local pidA pidB roomA roomB verdictA verdictB
+  timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logA" 2>&1 &
+  pidA=$!
+  sleep 8
+  timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logB" 2>&1 &
+  pidB=$!
+  wait "$pidA"
+  wait "$pidB"
+  for l in "$logA" "$logB"; do
+    grep -E '^(PhotonCloud|SMOKE: (damage|regen|barrier|problem))' "$l" | tr -d '\r' | sed 's/^/        /'
+  done
+  roomA=$(grep -oE 'room=[^ ]+' "$logA" | head -1 | tr -d '\r')
+  roomB=$(grep -oE 'room=[^ ]+' "$logB" | head -1 | tr -d '\r')
+  verdictA=$(tr -d '\r' < "$logA" | grep -oE '^SMOKE: (PASS|FAIL)$' | tail -1)
+  verdictB=$(tr -d '\r' < "$logB" | grep -oE '^SMOKE: (PASS|FAIL)$' | tail -1)
+  if grep -q '^PhotonCloud: no Photon App ID' "$logA"; then
+    fail "online M2$(run_label "$1") - no Photon App ID (Assets/Resources/PhotonAppId.local.txt or WULFRAM_PHOTON_APPID)"
+  elif [ "$verdictA" = "SMOKE: PASS" ] && [ "$verdictB" = "SMOKE: PASS" ] && [ -n "$roomA" ] && [ "$roomA" = "$roomB" ]; then
+    pass "online M2$(run_label "$1"): two clients in one Photon Cloud room ($roomA), damage both ways, regen"
+  else
+    fail "online M2$(run_label "$1") - client A '${verdictA:-no result}', client B '${verdictB:-no result}', rooms '${roomA}' / '${roomB}' - see $logA and $logB"
+  fi
+}
+
+if [ "$built" -eq 1 ]; then
+  for k in $(seq 1 "$STRESS"); do smoke_headless "$k"; done
+  for k in $(seq 1 "$STRESS"); do smoke_offline_play "$k"; done
+  if [ "$ONLINE" -eq 1 ]; then
+    for k in $(seq 1 "$STRESS"); do online_pair "$k"; done
   fi
 else
+  fail "smoke (headless) - skipped, no build"
   fail "smoke (offline play) - skipped, no build"
-fi
-
-# 6c. M2 online (only with --online): two clients through the real Play button on Photon Cloud
-if [ "$ONLINE" -eq 1 ]; then
-  if [ "$built" -eq 1 ]; then
-    # The second client starts 8s later: two clients pressing Play at the same instant can each
-    # create their own room (JoinRandomRoom finds none yet) and never meet.
-    logA="$OUT/6c-online-client-A.log"
-    logB="$OUT/6c-online-client-B.log"
-    timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logA" 2>&1 &
-    pidA=$!
-    sleep 8
-    timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logB" 2>&1 &
-    pidB=$!
-    wait "$pidA"
-    wait "$pidB"
-    for l in "$logA" "$logB"; do
-      grep -E '^(PhotonCloud|SMOKE: (damage|problem))' "$l" | tr -d '\r' | sed 's/^/        /'
-    done
-    roomA=$(grep -oE 'room=[0-9a-f-]+' "$logA" | head -1)
-    roomB=$(grep -oE 'room=[0-9a-f-]+' "$logB" | head -1)
-    if grep -q '^SMOKE: PASS' "$logA" && grep -q '^SMOKE: PASS' "$logB" && [ -n "$roomA" ] && [ "$roomA" = "$roomB" ]; then
-      pass "online M2: two clients in one Photon Cloud room ($roomA), damage both ways"
-    elif grep -q '^PhotonCloud: no Photon App ID' "$logA"; then
-      fail "online M2 - no Photon App ID (Assets/Resources/PhotonAppId.local.txt or WULFRAM_PHOTON_APPID)"
-    else
-      fail "online M2 - see $logA and $logB (rooms: '${roomA}' / '${roomB}')"
-    fi
-  else
-    fail "online M2 - skipped, no build"
-  fi
+  [ "$ONLINE" -eq 1 ] && fail "online M2 - skipped, no build"
 fi
 
 # stop_player <bash pid> - end a player started in the background
@@ -264,18 +305,40 @@ if [ "$WINDOWED" -eq 1 ]; then
 fi
 
 # 8. editor Play mode (only with --editor): offline play from the launcher scene and from Playground
+# license_reload <log> - true if Unity's periodic license refresh ("License updated successfully",
+# about once a day) came right before a forced script reload ("Reloading assemblies due to reload
+# request"). A reload in the middle of Play mode fails the step for a reason outside the project
+# (seen 2026-10-16, docs/QA-LOG.md); only then is the step rerun, once, and the rerun must pass.
+license_reload() {
+  tr -d '\r' < "$1" | awk '
+    /License updated successfully/ { licensed = 1 }
+    /Reloading assemblies due to reload request/ { if (licensed) found = 1 }
+    END { exit found ? 0 : 1 }'
+}
+
 if [ "$EDITOR" -eq 1 ]; then
   for start in "Assets/Scenes/Launcher 1.unity" "Assets/Scenes/Playground.unity"; do
     name=$(basename "$start" .unity | tr ' ' '-')
-    log="$OUT/8-editor-play-$name.log"
-    timeout 600 "$UNITY" -projectPath "$(win "$PROJECT")" -logFile "$(win "$log")" -offlinePlay -offlineSmokeTest -smokeSeconds 8 \
-      -executeMethod Wulfram.EditorTools.WulframEditorPlayCheck.Run -scenePath "$start"
-    tr -d '\r' < "$log" | grep -E '^(EDITORPLAY: result|SMOKE: (scene=|problem))' | sed 's/^/        /'
-    exceptions=$(tr -d '\r' < "$log" | grep -cE '^[A-Za-z.]*Exception')
-    if tr -d '\r' < "$log" | grep -q '^EDITORPLAY: result PASS' && [ "$exceptions" -eq 0 ]; then
-      pass "editor Play mode, opened on $name ($exceptions exceptions in the editor log)"
+    note=""
+    for attempt in 1 2; do
+      log="$OUT/8-editor-play-$name$([ "$attempt" -eq 2 ] && echo -rerun).log"
+      timeout 600 "$UNITY" -projectPath "$(win "$PROJECT")" -logFile "$(win "$log")" -offlinePlay -offlineSmokeTest -smokeSeconds 8 \
+        -executeMethod Wulfram.EditorTools.WulframEditorPlayCheck.Run -scenePath "$start"
+      tr -d '\r' < "$log" | grep -E '^(EDITORPLAY: result|SMOKE: (scene=|problem))' | sed 's/^/        /'
+      exceptions=$(tr -d '\r' < "$log" | grep -cE '^[A-Za-z.]*Exception')
+      ok=0
+      tr -d '\r' < "$log" | grep -q '^EDITORPLAY: result PASS' && [ "$exceptions" -eq 0 ] && ok=1
+      if [ "$ok" -eq 0 ] && [ "$attempt" -eq 1 ] && license_reload "$log"; then
+        echo "NOTE  editor Play mode ($name): Unity's license refresh forced a script reload during Play mode - rerunning once (first log: $log)"
+        note=", rerun after a license-refresh reload"
+        continue
+      fi
+      break
+    done
+    if [ "$ok" -eq 1 ]; then
+      pass "editor Play mode, opened on $name ($exceptions exceptions in the editor log$note)"
     else
-      fail "editor Play mode, opened on $name ($exceptions exceptions in the editor log) - see $log"
+      fail "editor Play mode, opened on $name ($exceptions exceptions in the editor log$note) - see $log"
     fi
   done
 fi

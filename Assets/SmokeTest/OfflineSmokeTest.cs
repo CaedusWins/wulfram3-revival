@@ -45,6 +45,19 @@ namespace Wulfram.SmokeTest
         private int expectPlayers = 1;
         private readonly System.Collections.Generic.List<string> firstProblems = new System.Collections.Generic.List<string>();
 
+        // Online M2: the lowest health seen on each tank while they are being watched (see Update).
+        private Com.Wulfram3.HitPointsManager watchMine;
+        private Com.Wulfram3.HitPointsManager watchOther;
+        private int lowestMine;
+        private int lowestOther;
+
+        // Online M2 lockstep: each client puts the last phase it finished in a player property.
+        private const string PhaseKey = "smokePhase";
+        private const float BarrierTimeout = 90f;
+        private bool barriersOk = true;
+        // Highest phase each player (by actor number) has reported - kept after a player leaves.
+        private readonly System.Collections.Generic.Dictionary<int, int> phaseReached = new System.Collections.Generic.Dictionary<int, int>();
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
@@ -108,6 +121,82 @@ namespace Wulfram.SmokeTest
         private void Awake()
         {
             Application.logMessageReceived += OnLog;
+        }
+
+        private void Update()
+        {
+            if (watchMine != null)
+            {
+                lowestMine = Mathf.Min(lowestMine, watchMine.health);
+            }
+            if (watchOther != null)
+            {
+                lowestOther = Mathf.Min(lowestOther, watchOther.health);
+            }
+        }
+
+        // Marks this client as done with <phase>, then waits until every expected player has done it
+        // too. A local player's property changes apply immediately here and reach the others through
+        // the server, so no one can pass a barrier before this client reaches it. A player counts
+        // once it has reported the phase, even if it has left since: PUN can deliver another
+        // client's "done" and its leaving in the same frame (seen 2026-10-16), so checking only the
+        // players still in the room could wait forever.
+        private IEnumerator Barrier(int phase, string what)
+        {
+            ExitGames.Client.Photon.Hashtable done = new ExitGames.Client.Photon.Hashtable();
+            done[PhaseKey] = phase;
+            PhotonNetwork.player.SetCustomProperties(done);
+            float start = Time.realtimeSinceStartup;
+            while (PlayersAtPhase(phase) < expectPlayers && Time.realtimeSinceStartup < start + BarrierTimeout)
+            {
+                yield return null;
+            }
+            int reached = PlayersAtPhase(phase);
+            if (reached < expectPlayers)
+            {
+                barriersOk = false;
+            }
+            Debug.Log("SMOKE: barrier " + phase + " (" + what + "): " + reached + "/" + expectPlayers + " players after " +
+                (Time.realtimeSinceStartup - start).ToString("0.0") + "s" + (reached < expectPlayers ? " - TIMED OUT" : ""));
+        }
+
+        private int PlayersAtPhase(int phase)
+        {
+            PhotonPlayer[] players = PhotonNetwork.playerList;
+            for (int i = 0; i < players.Length; i++)
+            {
+                NotePhase(players[i], players[i].CustomProperties);
+            }
+            int count = 0;
+            foreach (int reached in phaseReached.Values)
+            {
+                if (reached >= phase)
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        // PUN calls this (by SendMessage) on every MonoBehaviour when a player's properties change,
+        // before it processes that player leaving.
+        private void OnPhotonPlayerPropertiesChanged(object[] playerAndUpdatedProps)
+        {
+            NotePhase(playerAndUpdatedProps[0] as PhotonPlayer, playerAndUpdatedProps[1] as ExitGames.Client.Photon.Hashtable);
+        }
+
+        private void NotePhase(PhotonPlayer player, ExitGames.Client.Photon.Hashtable props)
+        {
+            object value;
+            if (player == null || props == null || !props.TryGetValue(PhaseKey, out value) || !(value is int))
+            {
+                return;
+            }
+            int known;
+            if (!phaseReached.TryGetValue(player.ID, out known) || (int)value > known)
+            {
+                phaseReached[player.ID] = (int)value;
+            }
         }
 
         private void OnLog(string message, string stackTrace, LogType type)
@@ -206,8 +295,8 @@ namespace Wulfram.SmokeTest
             }
 
             // With -smokeExpectPlayers N (online), wait until N players are in the room and N tanks
-            // exist here - the M2 proof that clients see each other - then hold a moment so the other
-            // clients can see this one too before it leaves.
+            // exist here - the M2 proof that clients see each other. The barriers below keep every
+            // client in the room until all of them have finished checking.
             int playersSeen = PhotonNetwork.playerList.Length;
             int tanksSeen = FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>().Length;
             if (expectPlayers > 1)
@@ -226,9 +315,14 @@ namespace Wulfram.SmokeTest
             // a hit (HitPointsManager.TellServerTakeDamage -> RPC to the master client, which applies
             // it and broadcasts UpdateHealth to all). Each client hits the other tank for 10 once. Both
             // tanks start at 100 and nothing else damages them, so each client must see BOTH tanks dip
-            // to 90 or lower. The LOWEST health seen counts, sampled from the moment both players are
-            // present: HealthRegenerator heals the master's own tank, so "exactly 90 right now" failed
-            // when one client was slower (seen 2026-10-10). Only aiming/raycasting is skipped.
+            // to 90 or lower. The LOWEST health seen counts: tanks regenerate, so "exactly 90 right
+            // now" failed when one client was slower (seen 2026-10-10). Only aiming/raycasting is
+            // skipped.
+            //
+            // The clients run in lockstep (Barrier): each starts watching before it says it is ready,
+            // nobody shoots until everyone is watching, and nobody leaves until everyone has checked.
+            // Without that, a client that entered later could be hit and heal before it started
+            // watching, or find the other client already gone (seen 2026-10-16, gate run js-neg).
             string damage = "";
             bool damageOk = true;
             if (online && expectPlayers > 1)
@@ -252,29 +346,27 @@ namespace Wulfram.SmokeTest
                 }
                 else
                 {
-                    int lowestMine = mine.health;
-                    int lowestOther = other.health;
-                    // Hold so both clients are surely in the room before anyone shoots.
-                    float hold = Time.realtimeSinceStartup + 10f;
-                    while (Time.realtimeSinceStartup < hold)
-                    {
-                        yield return null;
-                        lowestMine = Mathf.Min(lowestMine, mine.health);
-                        lowestOther = Mathf.Min(lowestOther, other.health);
-                    }
+                    // Watch both tanks every frame from here on (Update), including while waiting at
+                    // a barrier, then tell the others this client is watching.
+                    watchMine = mine;
+                    watchOther = other;
+                    lowestMine = mine.health;
+                    lowestOther = other.health;
+                    yield return StartCoroutine(Barrier(1, "everyone is watching"));
 
                     other.TellServerTakeDamage(10);
                     float waitDamage = Time.realtimeSinceStartup + 30f;
                     while ((lowestMine > 90 || lowestOther > 90) && Time.realtimeSinceStartup < waitDamage)
                     {
                         yield return null;
-                        lowestMine = Mathf.Min(lowestMine, mine.health);
-                        lowestOther = Mathf.Min(lowestOther, other.health);
                     }
                     damageOk = lowestMine <= 90 && lowestOther <= 90;
                     damage = " damage: master=" + PhotonNetwork.isMasterClient + " own lowest " + lowestMine + " now " + mine.health +
                         ", other lowest " + lowestOther + " now " + other.health;
                     Debug.Log("SMOKE:" + damage);
+                    watchMine = null;
+                    watchOther = null;
+                    yield return StartCoroutine(Barrier(2, "everyone has checked damage"));
 
                     // Regeneration: each player's OWN tank must heal (HealthRegenerator) while every
                     // expected player is still in the room - healing only after the other player left
@@ -299,12 +391,10 @@ namespace Wulfram.SmokeTest
                     Debug.Log("SMOKE: regen perSecond=" + perSecond + " own " + healedFrom + "->" + mine.health +
                         " healedWithAllPresent=" + healedWithAllPresent + " master=" + PhotonNetwork.isMasterClient);
 
-                    // Let the other client finish seeing its result before this one leaves.
-                    float settleDamage = Time.realtimeSinceStartup + 5f;
-                    while (Time.realtimeSinceStartup < settleDamage)
-                    {
-                        yield return null;
-                    }
+                    // Nobody leaves until everyone has finished checking.
+                    yield return StartCoroutine(Barrier(3, "everyone has checked regeneration"));
+                    damageOk = damageOk && barriersOk;
+                    damage += " barriersOk=" + barriersOk;
                 }
             }
 
