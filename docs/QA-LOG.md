@@ -29,6 +29,9 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 | 2026-10-10 | `pd-gate2` | `feature/playground-dirty` → #9 | `b3f6f13` | `--online --screenshots --editor` | VERIFIED (11/11) | merged `ac4b125` |
 | 2026-10-16 | `rg-gate` | `feature/regen-all-players` → #11 | `60a8320` | `--online --screenshots --editor` | NOT VERIFIED (10/11), then the failed step **3/3 PASS** on rerun | Step 8 (Launcher 1): Unity's periodic **license refresh** fired during Play mode, so the editor reloaded its scripts ("Reloading assemblies due to reload request"), which tripped `ChatDockUI.OnDisable` (null `ChatUI.Instance`). Environmental. Reruns had 0 license updates, 0 reloads, 0 exceptions (`SUMMARY-editor-reruns.txt`). Merged `bcc0228` |
 | 2026-10-16 | `js-neg` | `feature/join-same-room` (test only, no fix) | `e408a5d` | `--online` | NOT VERIFIED (9/11), as intended | Negative test: 6c and 6d failed as predicted (see below). Steps 1–6b passed. **Also found:** in 6c, client B's own smoke FAILED for a reason unrelated to rooms. See "Flaky online canary" below |
+| 2026-10-16 | `qa-gate` | `feature/qa-dev-stage` | `c022ef4` | `--online --screenshots --editor --stress 3` | **no result** | The dev PC crashed (bugcheck) about 2 minutes in, during Unity's first import. See "Test-machine stability" |
+| 2026-10-16 | `qa-gate2` | `feature/qa-dev-stage` → #13 | `0ac9e54` | `--online --screenshots --editor --stress 3` | VERIFIED (17/17) | All 6 online clients `barriersOk=True`; no crash under the same load. Merged `be5ea61` |
+| 2026-10-16 | `dev-gate` | **`dev`** after promotion #14 | `a17c31e` (= GitHub `dev`) | `--online --screenshots --editor --stress 3` | VERIFIED (17/17) | **First verified `dev`.** The first attempt (cloning from GitHub inside the VS Code workspace) was stopped before any step ran: VS Code auto-fetch was downloading into the clone at the same time. Rerun from a local clone outside the workspace, with the SHA checked against GitHub |
 
 ## Negative tests (test first, then fix)
 
@@ -39,17 +42,25 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 
 | 2026-10-16 | Online canary clients aren't in lockstep (flaky 6c) | `qa-artifacts\scripts\pair-test.sh`, the second client delayed by 15/25 s, on a baseline build of `42525b8` | 15 s: B FAIL (own lowest 91, A already gone); 25 s: PASS. Reproduced | Barrier v1: 6/7 pairs PASS. One new failure: A timed out at barrier 3 because B's "done" and B leaving arrived in the same frame, so A never saw B both present and done. Fixed by latching each player's phase. **Barrier v2: 10/10 pairs PASS** (5 at 15 s; 0 timeouts). Logs: `qa-artifacts\pair-tests\` |
 
+## Manual playtests
+
+| Date | Build | Tester | Result |
+| --- | --- | --- | --- |
+| 2026-10-16 | `builds\wulfram3-dev-a17c31e` (game code = `dev` @ `a17c31e`), offline | owner | "The sample game is working": launches and plays offline with no time limit. The L1 checklist rows weren't yet reported one by one |
+
 ## Open QA findings
 
 - **FIXED on `feature/qa-dev-stage` (see the negative-test row above): flaky online canary (2026-10-16, `js-neg` 6c, client B).** The M2 smoke clients run their phases without waiting for each other. Client A started 8 s earlier, finished, and left. B's own tank had already regenerated from 90 to 91 before B began watching ("own lowest 91"), and by B's regen check, A was gone and B's tank was back at 100 ("100->100 healedWithAllPresent=False"). So B FAILED. The regen fix (#11) exposed this: before it, B's tank never healed, so B always saw 90. **It is test timing, not a game bug**, but it makes 6c/6d flaky. Fix (QA work, `feature/qa-dev-stage`): synchronize the phases (each client marks a phase done with a player custom property, and nobody leaves until every player has finished), and start the lowest-health sample when the local tank spawns, not when both players are seen.
 
 ## Test-machine stability
 
-- **2026-10-16 15:36: the dev PC crashed (bugcheck `0x00020001`, HYPERVISOR_ERROR) about 2 minutes into a fresh-clone gate on `c022ef4`.** That was during Unity's first full import, the heaviest load in the gate. It was not caused by the project: Windows logged **34 unexpected reboots in the 90 days before** (the first on 2026-07-20, before Unity was installed here on 2026-08-29), with 7 different bugcheck codes (`0x50` ×12, `0x3B` ×4, `0x00020001` ×4, `0x1E`, `0x1AA`, `0x0A`, `0x3D`). Many unrelated codes points at hardware or firmware: an i9-14900KF (the 13th/14th-gen instability family), BIOS 2.25.0, microcode `0x133` (current, so already patched). Nothing was lost: the repo passed `git fsck`, everything was pushed, and the half-imported clone was deleted. The gate has to be rerun from scratch on a fresh clone.
+- **2026-10-16 15:36: the dev PC crashed (bugcheck `0x00020001`, HYPERVISOR_ERROR) about 2 minutes into a fresh-clone gate on `c022ef4`.** That was during Unity's first full import, the heaviest load in the gate. It was not caused by the project: Windows logged **34 unexpected reboots in the 90 days before** (the first on 2026-07-20, before Unity was installed here on 2026-08-29), with 7 different bugcheck codes (`0x50` ×12, `0x3B` ×4, `0x00020001` ×4, `0x1E`, `0x1AA`, `0x0A`, `0x3D`). Many unrelated codes points at hardware or firmware: an i9-14900KF (the 13th/14th-gen instability family), BIOS 2.25.0, microcode `0x133` (current, so already patched). Nothing was lost: the repo passed `git fsck`, everything was pushed, and the half-imported clone was deleted. The gate was rerun from scratch on a fresh clone (`qa-gate2`, VERIFIED), and then the `dev` gate ran, both under the same load with no further crash.
 - **Rule:** an unexplained crash, hang or exception during a gate run gets checked against the Windows event log (`Get-WinEvent` System log, IDs 41/1001/6008) **before** it is blamed on the code. A run cut short by a machine crash is no result, never a pass.
 
 ## Lessons the runs taught (kept here so they aren't relearned)
 
 - **Unity's license refresh can force a script reload in the editor.** Seen twice: 2026-10-10 (an early editor-Play investigation, which recovered and passed) and 2026-10-16 (`rg-gate`). It happens about once a day (the log names the next check: "Next license update check is after …"). A reload during Play mode fails step 8. Before blaming the code, check the step-8 log for `License updated successfully` just before `Reloading assemblies due to reload request`.
+- **Keep gate clones out of the VS Code workspace** (`C:\Development\wulfram-gates\`): with `git.autofetch` on, VS Code fetches any new repo it finds there, in parallel with the clone.
+- **Wait for every check run on the head SHA before merging** (push *and* pull_request runs). Branch protection refuses the merge otherwise, and that's correct.
 - **"Exactly N" assertions are flaky in a live game** (regeneration, timing). Assert bounds and the lowest/highest value seen.
 - **A fresh clone's first editor open recompiles everything**, sometimes twice. `WulframEditorPlayCheck` waits for the editor to settle before pressing Play; keep it that way.

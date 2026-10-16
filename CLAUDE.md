@@ -11,7 +11,18 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `docs/L1-LOCAL-PLAYABILITY.md` — the current milestone's checklist: what "plays end to end locally" means, row by row, with status and how each row gets proven.
 - `docs/QA-LOG.md` — every gate run a merge rested on (commit, flags, verdict), negative tests, and where the logs/screenshots are kept (outside git).
 
-**Immediate next action (as of 2026-10-16): L1 — Local Playability, before any more online work** (owner's decision; see Decisions and `docs/L1-LOCAL-PLAYABILITY.md`). Since the 2026-10-10 entry below: the regeneration fix merged (PR #11, `bcc0228`). The same-instant-Play fix (`feature/join-same-room`) is written and test-first, but **parked unmerged** as online work. Next, each on its own branch and verified before it moves up: (1) `feature/qa-dev-stage` — the gate saves its own report, `--stress N`, the license-refresh lesson built into step 8, and **the online canary's two clients synchronized** (it's flaky today: see "Open QA findings" in `docs/QA-LOG.md`); (2) promote `revival/phase-0-1-bringup` → `dev` through the protected PR, then run the full gate on a fresh clone of `dev` (needs the owner's go-ahead); (3) L1 branches: the automated gameplay smoke phases, the static RPC-argument check, and fixes for what they find; (4) the owner's manual playtest pass on a verified build. Online work (join fix, real two-person match, chat, RPC trust) resumes after L1.
+**Immediate next action (as of 2026-10-16, evening): L1 — Local Playability, before any more online work** (owner's decision; see Decisions and `docs/L1-LOCAL-PLAYABILITY.md`). Done today:
+- regeneration fix (PR #11, `bcc0228`);
+- QA stage (PR #13, `be5ea61`): lockstep online smoke, gate `SUMMARY.txt`, `--stress N`, license-refresh rerun;
+- **first promotion to `dev`** (PR #14, `a17c31e`), **VERIFIED 17/17** on a fresh clone of `dev` (`--screenshots --editor --online --stress 3`).
+
+`master` is untouched. The owner played the dev build offline ("the sample game is working"). The same-instant-Play fix (`feature/join-same-room`) stays **parked** as online work. Next, each on its own branch and verified before it moves up:
+1. `feature/rpc-arg-check`: the static RPC check, L1 row 20. Built, tested and pushed; its gate, then the PR.
+2. `feature/l1-gameplay-smoke`: `AutoCannon.TryFire` extracted, plus a `GameplaySmokeTest` covering cannon, fuel and destroy (rows 5/7/15). Written but not compiled; it's stashed in the main working copy (`git stash list`).
+3. More L1 phases: death/respawn, self-destruct, cargo (with the RPC fix), deploy, turrets.
+4. The owner's manual playtest checklist pass.
+
+Online work (join fix, real two-person match, chat, RPC trust) resumes after L1.
 
 **Previous status (2026-10-10):** **M2 is merged** (PR #5, `c820d62`, tag `m2`), after `Tools/verify-local.sh --windowed --editor --online` printed VERIFIED on a fresh clone of `6369a20`. The current play build is `ac4b125` (chat UI hidden; online + offline launchers; it contains the App ID, so share it privately), in `C:\Development\Wulfram_Development\builds\wulfram3-ac4b125\`. Next: a real two-person match over the internet; chat via a Photon Chat app; the same-instant-Play room race; M3 prep (RPC trust model, Photon authentication). M1 merged 2026-10-07 (PR #1, tag `m1`); offline play merged 2026-10-10 (PR #3). Still open and user-only: revoke the leaked Discord webhook. Optional, the user's call: promote `revival/phase-0-1-bringup` → `dev` through a PR (`dev` is protected and needs green `checks`). `feature/m2-photon-pun2-migration` is now just the *later* PUN2 upgrade. PUN2 needs Unity 2017.4.7+, so it comes after an engine step; see Decisions.
 
@@ -33,7 +44,7 @@ Two unrelated things share the name "Wulfram" — don't conflate them:
 ## Branch Model (set up and pushed to GitHub)
 
 - **`master`** = prod. Stable, deployable, currently untouched at the original `21f284f` ("fixed size of gui", Jan 2018). Nothing merges here without explicit sign-off.
-- **`dev`** = integration/testing. Still mirrors `master`. M1 is merged into `revival/phase-0-1-bringup` but not yet promoted to `dev`; that's the user's call.
+- **`dev`** = integration/testing. **First promoted 2026-10-16** (PR #14, merge `a17c31e`: M1, offline play, M2, regen fix, QA stage), then VERIFIED 17/17 on a fresh clone of `dev` itself. Playtest builds come from `dev`. Promotions after this one follow the runbook in "QA & Merge Process".
 - **`revival/phase-0-1-bringup`** = active integration branch for the revival effort, pushed to origin. Feature branches (below) merge back into this one; this is what eventually merges into `dev`.
 
 **Branch discipline and backtracking (user requirement, 2026-10-10: "keep all work organized into feature branches so we can backtrack with 1000% confidence"):**
@@ -197,7 +208,16 @@ On `feature/m1-scene-build-settings`, pre-merge audit, 2026-10-07 (`0a168cf`..`1
   - `feature/*` → `revival/phase-0-1-bringup`: `checks` green **and** `Tools/verify-local.sh --windowed` prints `VERIFIED` on a **fresh clone of the exact commit being merged** (merge with `gh pr merge --merge --match-head-commit <sha>`, so nothing else slips in).
   - `revival/phase-0-1-bringup` → `dev`: all of the above **and** the milestone's own end-to-end proof (M1: opens/compiles/scenes clean; M2: two clients in one Photon room, damage lands both ways).
   - `dev` → `master`: `dev` has been exercised by real play (closed playtest, M3) with no open blockers.
-- **Mechanics:** open a PR (`gh pr create`), wait for `checks`, merge with a **merge commit** (`gh pr merge --merge`). Not squash or rebase: this file cites individual commit SHAs, and those must stay reachable. Keep feature branches after merging, for the same reason. A direct `git push` to `dev` or `master` is now rejected by GitHub; that is intentional.
+- **Gate clones (2026-10-16):** clone into **`C:\Development\wulfram-gates\<name>`**, outside the VS Code workspace folder. The owner's VS Code has `git.autofetch: true` and started a second, full GitHub fetch into a gate clone inside the workspace one second after the clone began, doubling a 40-minute download. Clone from the local repo (`git clone --no-checkout --branch <b> --single-branch <local repo>`, sparse `'/*' '!/windows/'`), then check that `git rev-parse HEAD` equals `git ls-remote <GitHub> refs/heads/<b>`. Git commits are content hashes, so an equal SHA means identical content. Copy `<out>` minus `player/` to `qa-artifacts\gate-runs\<name>\`, add a QA-LOG row, and delete the clone.
+- **Promotion runbook, revival → dev:**
+  1. The revival head's tree must be identical to an already-verified feature head; otherwise run the gate on revival first.
+  2. `gh pr create --base dev --head revival/phase-0-1-bringup`.
+  3. Wait for **every** check run on the head SHA: the `push` run *and* the `pull_request` run. `gh pr checks --watch` can return after the first one; merging before both finish was refused once (2026-10-16) as "base branch policy prohibits the merge". Check with `gh api repos/<repo>/commits/<sha>/check-runs`.
+  4. `gh pr merge --merge --match-head-commit <sha>`. Never `--admin`.
+  5. Verify the `dev` tree equals revival and `dev` CI is green.
+  6. Run the full gate (`--screenshots --editor --online --stress 3`) on a fresh clone of `dev`.
+  7. Add the QA-LOG row and a docs PR.
+- **Mechanics:** open a PR (`gh pr create`), wait for `checks` (every check run on the head SHA, see above), merge with a **merge commit** (`gh pr merge --merge`). Not squash or rebase: this file cites individual commit SHAs, and those must stay reachable. Keep feature branches after merging, for the same reason. A direct `git push` to `dev` or `master` is now rejected by GitHub; that is intentional.
 
 ## Working Preferences
 

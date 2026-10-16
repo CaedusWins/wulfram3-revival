@@ -37,14 +37,15 @@ This is the **human-readable narrative** of the revival effort: what's happened,
 
 - **2026-10-16** — **Healing fixed for everyone, and a change of course: local first.** The more robust damage test exposed a real bug: only the hosting player's tank healed over time. Healing now goes through the host the same way damage does, and a test that failed before the fix passes after it (PR #11). A second online bug was reproduced on purpose: two players pressing Play at the same instant can land in separate matches. Its fix is written but parked, because the owner decided the game must first play perfectly **on one machine** before any more online work. The new milestone, **L1 — Local Playability**, is a 20-row checklist of everything the 2018 code actually does (driving, both cannons, fuel, death and respawn, cargo, building, turrets…). Each row gets an automated test or a hands-on playtest (`docs/L1-LOCAL-PLAYABILITY.md`). Every test run so far is now recorded in `docs/QA-LOG.md`, with its logs and screenshots archived on the dev machine.
 
+- **2026-10-16 (evening)** — **The testing stage is live.** The testing process got sturdier first. Each test run now writes its own report and can repeat itself to flush out flaky results. The two automated online players now move in lockstep, which removed a timing flake that had been failing good code about one run in seven. Then, for the first time, the revival work moved into `dev`, the testing stage. A completely fresh copy of `dev` passed every check: 17 of 17, with each game test repeated three times. The owner played that build offline. Along the way the dev PC crashed once under heavy load. Its logs show months of earlier crashes, so it wasn't the project, and the reruns went through cleanly. A new automatic check now catches network messages that work offline but would break online, and it immediately confirmed a real bug in cargo pickup.
+
 ## What's next
 
 1. **Owner action:** revoke the leaked Discord webhook in Discord (Server Settings → Integrations → Webhooks). Nothing in the repo can fix this; it's been public since 2017.
-2. Make the testing process itself sturdier: test runs save their own reports, can repeat themselves to catch flaky results, and the online check's two test players stay in step.
-3. Move the verified revival work into the `dev` branch (testing stage), checked again there from scratch.
-4. **L1 — Local Playability:** work through the checklist, one fix or test per branch, then a hands-on playtest by the owner.
-5. After L1: back online. Merge the same-instant-Play fix, play a real two-person match, bring chat back (needs a Photon **Chat** app), and decide how far to trust what players' games send.
-6. Later: a small Unity engine step (2017.3 → 2017.4 LTS), which opens the door to Photon's newer PUN2 library and fixes.
+2. ~~Make the testing process sturdier~~ and ~~move the verified work into `dev`~~: both done 2026-10-16.
+3. **L1 — Local Playability:** work through the checklist, one fix or test per branch, then a hands-on playtest by the owner.
+4. After L1: back online. Merge the same-instant-Play fix, play a real two-person match, bring chat back (needs a Photon **Chat** app), and decide how far to trust what players' games send.
+5. Later: a small Unity engine step (2017.3 → 2017.4 LTS), which opens the door to Photon's newer PUN2 library and fixes.
 
 ## Maintenance note
 
