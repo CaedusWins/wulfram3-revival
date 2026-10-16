@@ -33,7 +33,9 @@
 #   8. editor     only with --editor: opens the Unity editor (its window shows for ~1-2 min per run)
 #                 and runs the smoke test in Play mode with offline play, once opened on the launcher
 #                 and once on Playground (Play must start from the launcher either way). Needs
-#                 EDITORPLAY PASS and zero exceptions anywhere in the editor log.
+#                 EDITORPLAY PASS and zero exceptions anywhere in the editor log. If a run fails
+#                 and its log shows Unity's license refresh forcing a script reload, it is rerun
+#                 once (noted in the output); the rerun must pass.
 #
 # Unity's process exit code is not trusted (it can be 0 with compile errors); every step reads its log.
 set -u
@@ -303,18 +305,40 @@ if [ "$WINDOWED" -eq 1 ]; then
 fi
 
 # 8. editor Play mode (only with --editor): offline play from the launcher scene and from Playground
+# license_reload <log> - true if Unity's periodic license refresh ("License updated successfully",
+# about once a day) came right before a forced script reload ("Reloading assemblies due to reload
+# request"). A reload in the middle of Play mode fails the step for a reason outside the project
+# (seen 2026-10-16, docs/QA-LOG.md); only then is the step rerun, once, and the rerun must pass.
+license_reload() {
+  tr -d '\r' < "$1" | awk '
+    /License updated successfully/ { licensed = 1 }
+    /Reloading assemblies due to reload request/ { if (licensed) found = 1 }
+    END { exit found ? 0 : 1 }'
+}
+
 if [ "$EDITOR" -eq 1 ]; then
   for start in "Assets/Scenes/Launcher 1.unity" "Assets/Scenes/Playground.unity"; do
     name=$(basename "$start" .unity | tr ' ' '-')
-    log="$OUT/8-editor-play-$name.log"
-    timeout 600 "$UNITY" -projectPath "$(win "$PROJECT")" -logFile "$(win "$log")" -offlinePlay -offlineSmokeTest -smokeSeconds 8 \
-      -executeMethod Wulfram.EditorTools.WulframEditorPlayCheck.Run -scenePath "$start"
-    tr -d '\r' < "$log" | grep -E '^(EDITORPLAY: result|SMOKE: (scene=|problem))' | sed 's/^/        /'
-    exceptions=$(tr -d '\r' < "$log" | grep -cE '^[A-Za-z.]*Exception')
-    if tr -d '\r' < "$log" | grep -q '^EDITORPLAY: result PASS' && [ "$exceptions" -eq 0 ]; then
-      pass "editor Play mode, opened on $name ($exceptions exceptions in the editor log)"
+    note=""
+    for attempt in 1 2; do
+      log="$OUT/8-editor-play-$name$([ "$attempt" -eq 2 ] && echo -rerun).log"
+      timeout 600 "$UNITY" -projectPath "$(win "$PROJECT")" -logFile "$(win "$log")" -offlinePlay -offlineSmokeTest -smokeSeconds 8 \
+        -executeMethod Wulfram.EditorTools.WulframEditorPlayCheck.Run -scenePath "$start"
+      tr -d '\r' < "$log" | grep -E '^(EDITORPLAY: result|SMOKE: (scene=|problem))' | sed 's/^/        /'
+      exceptions=$(tr -d '\r' < "$log" | grep -cE '^[A-Za-z.]*Exception')
+      ok=0
+      tr -d '\r' < "$log" | grep -q '^EDITORPLAY: result PASS' && [ "$exceptions" -eq 0 ] && ok=1
+      if [ "$ok" -eq 0 ] && [ "$attempt" -eq 1 ] && license_reload "$log"; then
+        echo "NOTE  editor Play mode ($name): Unity's license refresh forced a script reload during Play mode - rerunning once (first log: $log)"
+        note=", rerun after a license-refresh reload"
+        continue
+      fi
+      break
+    done
+    if [ "$ok" -eq 1 ]; then
+      pass "editor Play mode, opened on $name ($exceptions exceptions in the editor log$note)"
     else
-      fail "editor Play mode, opened on $name ($exceptions exceptions in the editor log) - see $log"
+      fail "editor Play mode, opened on $name ($exceptions exceptions in the editor log$note) - see $log"
     fi
   done
 fi
