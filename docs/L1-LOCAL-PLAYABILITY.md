@@ -27,7 +27,7 @@ Status: **proven** = covered by an automated gate step that passes today · **un
 | 9 | Targeting | Tab cycles targets; T targets the unit straight ahead (raycast, 300 m); target info panel | `TargetController`, `TargetInfoController` | auto (Tab) | proven (Tab); **known bug**: panel never returns after its target leaves the screen |
 | 10 | Death → respawn | At 0 health: overhead camera + cursor; clicking a repair pad respawns at full health and fuel; with no pad, one is spawned | `PlayerMovementManager.Update`, `GameManager.Respawn`, `RepairPad` | auto (kill → respawn) + manual (click) | untested |
 | 11 | Self-destruct | V plays the effect, then splash damage around and kills self; respawn works after | `selfDestruct` | auto + manual | untested |
-| 12 | Cargo | Q picks up a cargo box within 5 m, Z drops it with its content | `CargoManager`, `GameManager.RequestPickUpCargo` / `RequestDropCargo` | auto | untested; **suspect** online (component passed as RPC argument) |
+| 12 | Cargo | Q picks up a cargo box within 5 m, Z drops it with its content | `CargoManager`, `GameManager.RequestPickUpCargo` / `RequestDropCargo` | auto | untested; **confirmed broken online** by the RPC check (row 20): a component passed as an RPC argument |
 | 13 | Deploy cargo | `,` places the carried unit (cargo content = prefab name), mouse wheel rotates, click releases | `GroundPlacementController` | auto + manual | untested; logs `mouseScrollDelta` every frame while placing |
 | 14 | Turrets | Flak turrets find enemy-team tanks in range, turn, fire flak shells (master only) | `FlakTurretManager` | auto | untested; SAM turret has **no AI** (known) |
 | 15 | Unit destruction | A non-player unit at 0 health explodes and is removed | `GameManager.UnitsHealthUpdated` | auto | untested |
@@ -35,7 +35,7 @@ Status: **proven** = covered by an automated gate step that passes today · **un
 | 17 | HUD | Hull + fuel bars, ping, FPS, player list, team counter readable and correct | various | manual | untested |
 | 18 | Audio | Cannon, pickup/drop, UI click sounds play | various | manual | untested |
 | 19 | Editor parity | Everything above also works in editor Play mode (Wulfram → Offline Play) | `WulframEditorPlayCheck` | auto (boot path) + manual | partly proven |
-| 20 | Offline-hidden network bugs | No RPC passes an argument type Photon cannot serialize | static check (CI) | auto | not built yet |
+| 20 | Offline-hidden network bugs | No RPC passes an argument type Photon cannot serialize | static check (CI) | auto | **proven** (`Tools/check-rpc.sh`, 2026-10-16): 2 findings, both the cargo RPCs (row 12), held in `Tools/rpc-baseline.txt` until fixed |
 
 **L1 is done when:** every row is *proven* by an automated gate step and/or a signed-off manual playtest pass, and every bug found is fixed or written down as a deliberate known issue. The verdicts are recorded in `docs/QA-LOG.md`.
 
@@ -43,7 +43,7 @@ Status: **proven** = covered by an automated gate step that passes today · **un
 
 1. **Automated gameplay smoke** (offline, built player + editor). Like the M2 damage test, each phase calls the same method the control handler calls (Unity 2017's `Input` class can't be fed fake keyboard/mouse input) and checks the outcome: health, fuel, objects spawned or destroyed, camera state. One phase per branch, written **test first**: run it against the current code to see what it catches, then fix.
 2. **Manual playtest checklist** (the owner, on a build from the verified commit): rows 3, 4, 13, 17, 18 and the feel of everything else. One session per verified build, recorded in `docs/QA-LOG.md` with the build commit.
-3. **Static RPC-argument check** in CI (row 20). It fails on `photonView.RPC(...)` calls whose arguments include a component or GameObject.
+3. **Static RPC check** in CI (row 20, `Tools/check-rpc.sh`). It fails on a `[PunRPC]` method parameter PUN can't send (a component, GameObject, `ref`/`out`…) and on an `.RPC("Name")` call to a method that doesn't exist. Known findings are held in `Tools/rpc-baseline.txt`.
 
 ## Not in the 2018 code (from the manual; roadmap input, not L1)
 
