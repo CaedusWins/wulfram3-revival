@@ -1,0 +1,8 @@
+# Known findings of Tools/check-rpc.sh, not fixed yet. A new finding fails CI; so does a line here
+# that is no longer found (delete it in the commit that fixes it).
+#
+# Cargo pickup/drop send the CargoManager component itself as the RPC argument. PUN Classic can't
+# serialize components, so this works only in offline mode (which doesn't serialize). Fix: send the
+# CargoManager's PhotonView ID and look it up on the master. L1 row 12, docs/L1-LOCAL-PLAYABILITY.md.
+rpc-param Assets/GameManager.cs RequestDropCargo CargoManager
+rpc-param Assets/GameManager.cs RequestPickUpCargo CargoManager
