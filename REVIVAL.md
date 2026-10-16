@@ -33,12 +33,18 @@ This is the **human-readable narrative** of the revival effort: what's happened,
 
 - **2026-10-10 (later)** — **Two players, one match: M2 works.** With a free Photon account, the game's original 2018 networking connects to Photon's servers today, so no risky library upgrade was needed. An automated test now launches two copies of the game: they land in the same online match on opposite teams, see each other's tanks, and each hits the other, with the damage showing up on both screens. The Photon key stays on the owner's machine and never goes into the public repo, and a CI check enforces it. In-game chat is off until the project gets its own Photon chat app.
 
+- **2026-10-10 (evening)** — Polish after M2: the empty chat box is hidden while chat is off (PR #7), the unreliable "exactly 90 health" check became "90 or lower" (PR #8), and a bundled auto-save tool that kept silently rewriting the arena scene was switched off (PR #9).
+
+- **2026-10-16** — **Healing fixed for everyone, and a change of course: local first.** The more robust damage test exposed a real bug: only the hosting player's tank healed over time. Healing now goes through the host the same way damage does, and a test that failed before the fix passes after it (PR #11). A second online bug was reproduced on purpose: two players pressing Play at the same instant can land in separate matches. Its fix is written but parked, because the owner decided the game must first play perfectly **on one machine** before any more online work. The new milestone, **L1 — Local Playability**, is a 20-row checklist of everything the 2018 code actually does (driving, both cannons, fuel, death and respawn, cargo, building, turrets…). Each row gets an automated test or a hands-on playtest (`docs/L1-LOCAL-PLAYABILITY.md`). Every test run so far is now recorded in `docs/QA-LOG.md`, with its logs and screenshots archived on the dev machine.
+
 ## What's next
 
 1. **Owner action:** revoke the leaked Discord webhook in Discord (Server Settings → Integrations → Webhooks). Nothing in the repo can fix this; it's been public since 2017.
-2. Merge M2 (`feature/m2-photon-cloud`) once its full check passes on a fresh copy, then try a real two-person match. The build is shared privately because it contains the Photon key.
-3. Chat: a second free Photon app (type **Chat**) brings in-game chat back.
-4. Later: a small Unity engine step (2017.3 → 2017.4 LTS), which opens the door to Photon's newer PUN2 library and fixes.
+2. Make the testing process itself sturdier: test runs save their own reports, can repeat themselves to catch flaky results, and the online check's two test players stay in step.
+3. Move the verified revival work into the `dev` branch (testing stage), checked again there from scratch.
+4. **L1 — Local Playability:** work through the checklist, one fix or test per branch, then a hands-on playtest by the owner.
+5. After L1: back online. Merge the same-instant-Play fix, play a real two-person match, bring chat back (needs a Photon **Chat** app), and decide how far to trust what players' games send.
+6. Later: a small Unity engine step (2017.3 → 2017.4 LTS), which opens the door to Photon's newer PUN2 library and fixes.
 
 ## Maintenance note
 
