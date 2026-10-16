@@ -23,7 +23,10 @@ namespace Com.Wulfram3 {
                     healthCollected--;
                     PlayerMovementManager playerMovementmanager = GetComponent<PlayerMovementManager>();
                     if (playerMovementmanager == null || !playerMovementmanager.isDead) {
-                        GetComponent<HitPointsManager>().TakeDamage(-1);
+                        // Through the master client, like damage: TakeDamage only acts on the master,
+                        // so calling it directly healed only the master's own units. The master
+                        // applies it (clamped to maxHealth) and broadcasts UpdateHealth to everyone.
+                        GetComponent<HitPointsManager>().TellServerTakeDamage(-1);
                     }
                     
                 }

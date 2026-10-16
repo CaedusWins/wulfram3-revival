@@ -276,6 +276,29 @@ namespace Wulfram.SmokeTest
                         ", other lowest " + lowestOther + " now " + other.health;
                     Debug.Log("SMOKE:" + damage);
 
+                    // Regeneration: each player's OWN tank must heal (HealthRegenerator) while every
+                    // expected player is still in the room - healing only after the other player left
+                    // (when this client may have become master) does not count. Wait long enough for
+                    // a couple of points at the tank's healthPerSecond.
+                    Com.Wulfram3.HealthRegenerator regen = me.GetComponent<Com.Wulfram3.HealthRegenerator>();
+                    float perSecond = regen == null ? 0f : regen.healthPerSecond;
+                    int healedFrom = mine.health;
+                    bool healedWithAllPresent = false;
+                    float waitRegen = Time.realtimeSinceStartup + (perSecond > 0f ? Mathf.Min(2.5f / perSecond, 60f) : 0f);
+                    while (!healedWithAllPresent && Time.realtimeSinceStartup < waitRegen)
+                    {
+                        yield return null;
+                        if (mine.health > healedFrom && PhotonNetwork.playerList.Length >= expectPlayers)
+                        {
+                            healedWithAllPresent = true;
+                        }
+                    }
+                    damageOk = damageOk && healedWithAllPresent;
+                    damage += " regen: perSecond=" + perSecond + " own " + healedFrom + "->" + mine.health +
+                        " healedWithAllPresent=" + healedWithAllPresent;
+                    Debug.Log("SMOKE: regen perSecond=" + perSecond + " own " + healedFrom + "->" + mine.health +
+                        " healedWithAllPresent=" + healedWithAllPresent + " master=" + PhotonNetwork.isMasterClient);
+
                     // Let the other client finish seeing its result before this one leaves.
                     float settleDamage = Time.realtimeSinceStartup + 5f;
                     while (Time.realtimeSinceStartup < settleDamage)
