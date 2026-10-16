@@ -92,7 +92,16 @@ namespace Com.Wulfram3 {
 
         private void CheckAndFire() {
             if (Input.GetMouseButton(0)) {
+                TryFire();
+            } else {
+                SetAndSyncShooting(false);
+            }
+        }
 
+        // One frame with the trigger held: fires a bullet if the cannon has reloaded, the cursor is
+        // hidden, the tank is alive and there is fuel. Public so the L1 gameplay smoke test can hold
+        // the trigger (Unity 2017 can't fake mouse input); players reach it only through CheckAndFire.
+        public void TryFire() {
                 float currentTime = Time.time;
                 if (lastFireTime + timeBetweenShots > currentTime ) {
                     return;
@@ -128,12 +137,8 @@ namespace Com.Wulfram3 {
                     if (hitPointsManager != null) {
                         hitPointsManager.TellServerTakeDamage(bulletDamageinHitpoints);
                         AudioSource.PlayClipAtPoint(autoCannonSound, transform.position);
-                    }              
+                    }
                 }
-
-            } else {
-                SetAndSyncShooting(false);
-            }
         }
 
         private void ShowFeedback() {
