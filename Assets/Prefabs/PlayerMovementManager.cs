@@ -149,10 +149,6 @@ namespace Com.Wulfram3 {
                         CmdFirePulseShell();
                         timestamp = Time.time + timeBetweenShots;
                     }
-                } else
-                {
-
-                    Debug.Log("Im a scout!");
                 }
 
                 //Tank Jump

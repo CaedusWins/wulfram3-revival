@@ -1,5 +1,6 @@
 #Wulfram3
 
+> **This is the original 2018 player manual** — how to play the game, preserved as-is from the source project. For the revival effort's current status and progress, see [REVIVAL.md](REVIVAL.md). For the dense technical/AI-resume doc (decisions, blockers, branch model), see [CLAUDE.md](CLAUDE.md).
 
 ##About
 

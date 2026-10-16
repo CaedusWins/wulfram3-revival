@@ -16,12 +16,16 @@ namespace Assets.InternalApis.Implementations
     public class DiscordApi : IDiscordApi
     {
         private const string discordApiUrl = "https://discordapp.com/api/v6";
-        private const string channelUrl = "https://discordapp.com/api/webhooks/389264790230532107/LgvTNdOLb28JQmtTpK1yBzam-CMAnEhDqLkmXT4CqAyP-8id8ydWisx2yz8Ga6fQ5wX2";
+        // The webhook that used to be hardcoded here was a live credential committed to source control.
+        // It has been removed; set WULFRAM_DISCORD_WEBHOOK_URL locally to re-enable join/leave posts.
+        private static readonly string channelUrl = System.Environment.GetEnvironmentVariable("WULFRAM_DISCORD_WEBHOOK_URL");
         private const string joinMessage = "{0} has started playing Wulfram 3!";
         private const string leftMessage = "{0} has left Wulfram 3!";
 
         public IEnumerator PlayerJoined(string playerName)
         {
+            if (string.IsNullOrEmpty(channelUrl)) yield break;
+
             var greetdiscord = string.Format(joinMessage, playerName);
             var postdiscord = "{ \"content\": \"" + greetdiscord + "\" } ";
 
@@ -30,6 +34,8 @@ namespace Assets.InternalApis.Implementations
 
         public IEnumerator PlayerLeft(string playerName)
         {
+            if (string.IsNullOrEmpty(channelUrl)) yield break;
+
             var greetdiscord = string.Format(leftMessage, playerName);
             var postdiscord = "{ \"content\": \"" + greetdiscord + "\" } ";
 

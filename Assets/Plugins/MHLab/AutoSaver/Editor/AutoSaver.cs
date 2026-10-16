@@ -9,7 +9,11 @@ public class AutoSaver
 {
     #region Public members
     // Flag to enable/disable AutoSaver!
-    public static bool IsEnabled = true;
+    // Wulfram: off by default (2026-10-10). Opening Playground in the editor marks it dirty - UGUI
+    // recomputes layout-driven RectTransforms (TargetInfo rows, game console text, chat dock), and
+    // the results aren't even stable between opens - so AutoSaver kept silently rewriting the
+    // tracked scene file. Turn it on per machine from AutoSaver's editor window if wanted.
+    public static bool IsEnabled = false;
 
     // Flag to enable/disable debug messages!
     public static bool IsDebugEnabled = true;
