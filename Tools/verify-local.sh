@@ -112,20 +112,40 @@ run_unity() {
 compile_clean() {
   grep -q 'Exiting batchmode successfully' "$1" && ! grep -qE 'compilationhadfailure: True|error CS[0-9]+|BCE[0-9]+' "$1"
 }
+# compile_failure_cause <log> - why a compile that wasn't clean failed, for the report:
+#   a compiler process that crashed exits non-zero with no compiler error in the log (seen
+#   2026-10-20: mono.exe died with 0xC0000409 = exit code -1073740791, an environment fault);
+#   error CS lines are compile errors (in a working copy, typically Unity's stale script list).
+compile_failure_cause() {
+  local crash
+  crash=$(tr -d '\r' < "$1" | grep -oE 'exitcode: -?[1-9][0-9]*--compilationhadfailure: True--outfile: [^ ]+' | head -1)
+  if tr -d '\r' < "$1" | grep -qE 'error CS[0-9]+|BCE[0-9]+'; then
+    echo "compile errors (in a working copy, typically Unity's stale script list after files were added/removed)"
+  elif [ -n "$crash" ]; then
+    echo "the compiler process crashed (${crash%%--*} building ${crash##*outfile: }), no compile errors"
+  elif ! tr -d '\r' < "$1" | grep -q 'Exiting batchmode successfully'; then
+    echo "Unity didn't finish (no 'Exiting batchmode successfully')"
+  else
+    echo "compilationhadfailure with no compile errors or crash exit code"
+  fi
+}
+
 log="$OUT/1-compile.log"
 run_unity "$log"
 if compile_clean "$log"; then
   pass "compile"
 else
-  # In an existing working copy, the first compile after scripts are added or removed runs on
-  # Unity's stale file list and fails (e.g. CS0234 for a just-added namespace) before Unity
-  # refreshes. A real error fails again; fresh clones never hit this.
+  # Rerun once: in an existing working copy the first compile after scripts are added or removed
+  # runs on Unity's stale file list and fails (e.g. CS0234 for a just-added namespace) before Unity
+  # refreshes, and Unity 2017's mono.exe has crashed mid-compile on this machine. A real error fails
+  # again. The report says which it was.
+  cause=$(compile_failure_cause "$log")
   rerun="$OUT/1-compile-rerun.log"
   run_unity "$rerun"
   if compile_clean "$rerun"; then
-    pass "compile (first run failed on Unity's stale script list after files were added/removed; rerun clean - see $log)"
+    pass "compile (first run failed: $cause; rerun clean - see $log)"
   else
-    fail "compile - see $log and $rerun"
+    fail "compile - first run: $cause; rerun: $(compile_failure_cause "$rerun") - see $log and $rerun"
   fi
 fi
 
