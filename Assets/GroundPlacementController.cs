@@ -43,7 +43,18 @@ public class GroundPlacementController : Photon.PunBehaviour
 
     public void HandleNewObjectHotkey()
     {
-        if (Input.GetKeyDown(newObjectHotkey) && !(baseUnit == ""))
+        if (Input.GetKeyDown(newObjectHotkey))
+        {
+            TogglePlacement();
+        }
+    }
+
+    // The deploy hotkey (','): with cargo on board, shows a placement preview of the carried unit,
+    // or removes the preview if one is showing. Public so the L1 gameplay smoke test can press it
+    // (Unity 2017 can't fake key presses); players reach it only through HandleNewObjectHotkey.
+    public void TogglePlacement()
+    {
+        if (!(baseUnit == ""))
         {
             if (currentPlaceableObject != null)
             {
@@ -103,14 +114,26 @@ public class GroundPlacementController : Photon.PunBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
+            Release();
+        }
+    }
+
+    // A left click while the preview shows: deploys the carried unit where the preview is and
+    // empties the cargo hold. Public so the L1 gameplay smoke test can click (Unity 2017 can't fake
+    // input); players reach it only through ReleaseIfClicked, which Update calls while a preview shows.
+    public void Release()
+    {
+        if (currentPlaceableObject == null)
+        {
+            return;
+        }
             //get baseunit to deploy based on its name in the resources folder (Must match)
-            
+
             Debug.Log(baseUnit);
-          
+
             Destroy(currentPlaceableObject);
             PhotonNetwork.Instantiate(baseUnit, placeObject.transform.position, placeObject.transform.rotation, 0);
             this.GetComponentInParent<CargoManager>().SetPickedUpCargo("");
-        }
     }
 }
 
