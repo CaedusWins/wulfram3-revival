@@ -128,6 +128,12 @@ jobs:
           fi
           echo "Secret scan passed"
 
+      - name: Photon RPC check (sendable parameter types, calls name real [PunRPC] methods)
+        run: |
+          # PUN offline mode doesn't serialize RPC arguments, so an unsendable one (a component,
+          # GameObject, ref/out) works offline and fails online. Known findings: Tools/rpc-baseline.txt.
+          bash Tools/check-rpc.sh
+
       - name: Required scenes present
         run: |
           set -e
