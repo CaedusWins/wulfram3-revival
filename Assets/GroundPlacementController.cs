@@ -29,8 +29,26 @@ public class GroundPlacementController : Photon.PunBehaviour
         
     }
 
+    // Every client runs this on every tank, so only the tank's owner may act on its keys, or pressing
+    // ',' would place other players' cargo too. The tank's PhotonView is looked up in the parents:
+    // PUN's photonView property only checks this GameObject.
+    private PhotonView ownerView;
+
+    private bool IsMine()
+    {
+        if (ownerView == null)
+        {
+            ownerView = GetComponentInParent<PhotonView>();
+        }
+        return ownerView != null && ownerView.isMine;
+    }
+
     public void Update()
     {
+        if (!IsMine())
+        {
+            return;
+        }
         HandleNewObjectHotkey();
         baseUnit = this.GetComponentInParent<CargoManager>().pickedUpCargo;
         if (currentPlaceableObject != null)
@@ -54,11 +72,13 @@ public class GroundPlacementController : Photon.PunBehaviour
     // (Unity 2017 can't fake key presses); players reach it only through HandleNewObjectHotkey.
     public void TogglePlacement()
     {
-        if (!(baseUnit == ""))
+        if (!(baseUnit == "") && IsMine())
         {
             if (currentPlaceableObject != null)
             {
-                Destroy(currentPlaceableObject);
+                // The preview is a network object (PhotonNetwork.Instantiate): a plain Destroy left
+                // it standing on every other client.
+                PhotonNetwork.Destroy(currentPlaceableObject);
             }
             else
             {
@@ -123,7 +143,7 @@ public class GroundPlacementController : Photon.PunBehaviour
     // input); players reach it only through ReleaseIfClicked, which Update calls while a preview shows.
     public void Release()
     {
-        if (currentPlaceableObject == null)
+        if (currentPlaceableObject == null || !IsMine())
         {
             return;
         }
@@ -131,9 +151,12 @@ public class GroundPlacementController : Photon.PunBehaviour
 
             Debug.Log(baseUnit);
 
-            Destroy(currentPlaceableObject);
+            // A network object: PhotonNetwork.Destroy, not Destroy (that left a ghost preview on other clients).
+            PhotonNetwork.Destroy(currentPlaceableObject);
             PhotonNetwork.Instantiate(baseUnit, placeObject.transform.position, placeObject.transform.rotation, 0);
-            this.GetComponentInParent<CargoManager>().SetPickedUpCargo("");
+            // Empty the hold for everyone, as GameManager.RequestDropCargo does; calling SetPickedUpCargo
+            // directly emptied it on this client only.
+            this.GetComponentInParent<CargoManager>().photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
     }
 }
 
