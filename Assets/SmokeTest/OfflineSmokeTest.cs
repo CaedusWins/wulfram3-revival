@@ -50,6 +50,10 @@ namespace Wulfram.SmokeTest
         private Com.Wulfram3.HitPointsManager watchOther;
         private int lowestMine;
         private int lowestOther;
+        // Every distinct health value this client saw on the other tank, in order (e.g. "100,90,91"),
+        // so an odd minimum can be read back from the log.
+        private string otherSequence = "";
+        private int otherLast = -1;
 
         // Online M2 lockstep: each client puts the last phase it finished in a player property.
         private const string PhaseKey = "smokePhase";
@@ -132,6 +136,11 @@ namespace Wulfram.SmokeTest
             if (watchOther != null)
             {
                 lowestOther = Mathf.Min(lowestOther, watchOther.health);
+                if (watchOther.health != otherLast && otherSequence.Length < 200)
+                {
+                    otherLast = watchOther.health;
+                    otherSequence += (otherSequence.Length > 0 ? "," : "") + otherLast;
+                }
             }
         }
 
@@ -315,7 +324,7 @@ namespace Wulfram.SmokeTest
             // a hit (HitPointsManager.TellServerTakeDamage -> RPC to the master client, which applies
             // it and broadcasts UpdateHealth to all). Each client hits the other tank for 10 once. Both
             // tanks start at 100 and nothing else damages them, so each client must see BOTH tanks dip
-            // to 90 or lower. The LOWEST health seen counts: tanks regenerate, so "exactly 90 right
+            // to 90 or lower (91: see below). The LOWEST health seen counts: tanks regenerate, so "exactly 90 right
             // now" failed when one client was slower (seen 2026-10-10). Only aiming/raycasting is
             // skipped.
             //
@@ -354,15 +363,23 @@ namespace Wulfram.SmokeTest
                     lowestOther = other.health;
                     yield return StartCoroutine(Barrier(1, "everyone is watching"));
 
-                    other.TellServerTakeDamage(10);
+                    // A tank counts as hit once it has been seen at 91 or lower, not only 90: the master
+                    // can apply the hit and its own regeneration tick (+1, every 2 s at 0.5/s) moments
+                    // apart, and when both UpdateHealth messages reach another client in the same
+                    // frame, that client only ever sees 91 (seen 2026-10-20, gate run cg-gate: it waited
+                    // 30 s for a 90 it would never see). Nothing but damage lowers health and two regen
+                    // ticks can't share a frame, so 91 still proves the 10-point hit landed.
+                    const int hitDamage = 10;
+                    int hitSeen = Mathf.Min(mine.maxHealth, other.maxHealth) - hitDamage + 1;
+                    other.TellServerTakeDamage(hitDamage);
                     float waitDamage = Time.realtimeSinceStartup + 30f;
-                    while ((lowestMine > 90 || lowestOther > 90) && Time.realtimeSinceStartup < waitDamage)
+                    while ((lowestMine > hitSeen || lowestOther > hitSeen) && Time.realtimeSinceStartup < waitDamage)
                     {
                         yield return null;
                     }
-                    damageOk = lowestMine <= 90 && lowestOther <= 90;
+                    damageOk = lowestMine <= hitSeen && lowestOther <= hitSeen;
                     damage = " damage: master=" + PhotonNetwork.isMasterClient + " own lowest " + lowestMine + " now " + mine.health +
-                        ", other lowest " + lowestOther + " now " + other.health;
+                        ", other lowest " + lowestOther + " now " + other.health + " (seen: " + otherSequence + ")";
                     Debug.Log("SMOKE:" + damage);
                     watchMine = null;
                     watchOther = null;
