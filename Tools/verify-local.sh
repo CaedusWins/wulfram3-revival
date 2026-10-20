@@ -21,7 +21,10 @@
 #   6b.           the same with -offlinePlay: enters through the launcher's real Play button.
 #   6e. gameplay  L1 gameplay smoke (-offlinePlay -gameplaySmokeTest, headless): turns to open ground,
 #                 fires the AutoCannon at a real enemy unit (health drops, fuel is spent), fuel
-#                 regenerates, the cannon destroys the unit (removed + explosion). "GAMEPLAY: PASS".
+#                 regenerates, the cannon destroys the unit (removed + explosion); lethal damage kills
+#                 the tank (dead tanks can't fire), the overhead map + cursor appear, clicking a repair
+#                 pad respawns it (full health/fuel, normal camera); self-destruct (V) blasts a nearby
+#                 enemy and kills the tank, and respawn works again. "GAMEPLAY: PASS".
 #                 (6d is taken by the parked feature/join-same-room.)
 #   6c. online   only with --online (needs the Photon App ID + internet): M2 - two clients through the
 #                 real Play button on Photon Cloud must share one room, see 2 players + 2 tanks, and
@@ -214,9 +217,9 @@ smoke_offline_play() {
 smoke_gameplay() {
   local log="$OUT/6e-gameplay$(run_tag "$1").log"
   timeout 300 "$player" -batchmode -offlinePlay -gameplaySmokeTest > "$log" 2>&1
-  tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy) (PASS|FAIL)|exceptions=|problem)' | sed 's/^/        /'
+  tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy|death|respawn[a-z-]*|self-destruct) (PASS|FAIL)|exceptions=|problem)' | sed 's/^/        /'
   if tr -d '\r' < "$log" | grep -q '^GAMEPLAY: PASS$'; then
-    pass "gameplay (aim, cannon, fuel, destroy)$(run_label "$1")"
+    pass "gameplay (aim, cannon, fuel, destroy, death, respawn, self-destruct)$(run_label "$1")"
   else
     fail "gameplay$(run_label "$1") - see $log"
   fi

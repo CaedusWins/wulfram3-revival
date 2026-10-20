@@ -17,6 +17,11 @@ namespace Wulfram.SmokeTest
     ///   cannon   (row 5)  hold the trigger at a real enemy unit: its health drops, fuel is spent
     ///   fuel     (row 7)  let go: fuel regenerates
     ///   destroy  (row 15) the cannon finishes the unit: the master removes it and spawns an explosion
+    ///   death    (row 10) lethal damage: the tank is dead and its cannon refuses to fire
+    ///   respawn  (row 10) the overhead map + cursor after destroyDelayWhenDead, then a click on a repair
+    ///                     pad (its own OnMouseDown) brings the tank back with full health and fuel
+    ///   self-destruct (row 11) the V key's handler: the blast damages a nearby enemy and kills the
+    ///                     tank, and respawn works again afterwards
     /// The target is a real enemy prefab (a flak turret from Resources) spawned in front of the tank,
     /// with its turret AI switched off so nothing else changes health or fuel during the checks.
     /// Each phase prints "GAMEPLAY: <phase> PASS|FAIL - details"; the last line is "GAMEPLAY: PASS" or
@@ -170,7 +175,178 @@ namespace Wulfram.SmokeTest
             Debug.Log("GAMEPLAY: player tank '" + me.name + "' team=" + (myUnit == null ? "?" : myUnit.team) +
                 " at " + me.transform.position + " cursorVisible=" + Cursor.visible + " lockState=" + Cursor.lockState);
             yield return StartCoroutine(CannonFuelDestroy(me, myUnit));
+            yield return StartCoroutine(DeathAndRespawn(me));
+            yield return StartCoroutine(SelfDestructAndRespawn(me, myUnit));
             Finish();
+        }
+
+        // death (row 10): lethal damage through the network damage path (the call self-destruct
+        // makes). The tank must count as dead and its cannon must refuse to fire; then the respawn
+        // flow must bring it back (see Respawn).
+        private IEnumerator DeathAndRespawn(GameObject me)
+        {
+            Com.Wulfram3.HitPointsManager hp = me.GetComponent<Com.Wulfram3.HitPointsManager>();
+            Com.Wulfram3.PlayerMovementManager movement = me.GetComponent<Com.Wulfram3.PlayerMovementManager>();
+            Com.Wulfram3.AutoCannon cannon = me.GetComponent<Com.Wulfram3.AutoCannon>();
+            Com.Wulfram3.FuelManager fuel = me.GetComponent<Com.Wulfram3.FuelManager>();
+            if (hp == null || movement == null)
+            {
+                Check("death", false, "player tank is missing " + (hp == null ? "HitPointsManager" : "PlayerMovementManager"));
+                yield break;
+            }
+            hp.TellServerTakeDamage(hp.maxHealth);
+            float until = Time.realtimeSinceStartup + 3f;
+            while (!movement.isDead && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            // Dead tanks can't shoot: hold the trigger for half a second, no fuel may be spent.
+            int fuelDead = fuel == null ? 0 : fuel.fuel;
+            float hold = Time.realtimeSinceStartup + 0.5f;
+            while (cannon != null && Time.realtimeSinceStartup < hold)
+            {
+                cannon.TryFire();
+                yield return null;
+            }
+            int fuelAfter = fuel == null ? 0 : fuel.fuel;
+            Check("death", movement.isDead && hp.health == 0 && fuelAfter == fuelDead,
+                "after lethal damage: isDead=" + movement.isDead + " health=" + hp.health +
+                ", trigger held while dead: fuel " + fuelDead + " -> " + fuelAfter + " (must not change)");
+            yield return StartCoroutine(Respawn("respawn", me));
+        }
+
+        // Respawn (row 10): destroyDelayWhenDead after death the game shows the overhead map with the
+        // cursor so the player can click a repair pad (GameManager.Respawn); with no pad in the arena it
+        // respawns the tank at the arena centre itself. The click is RepairPad's own OnMouseDown
+        // handler (sent as a message - Unity 2017 can't fake a mouse click). After it the tank must be
+        // alive at the pad, with full health and fuel, back in the normal camera with the cursor hidden.
+        private IEnumerator Respawn(string phase, GameObject me)
+        {
+            Com.Wulfram3.HitPointsManager hp = me.GetComponent<Com.Wulfram3.HitPointsManager>();
+            Com.Wulfram3.PlayerMovementManager movement = me.GetComponent<Com.Wulfram3.PlayerMovementManager>();
+            Com.Wulfram3.FuelManager fuel = me.GetComponent<Com.Wulfram3.FuelManager>();
+            Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
+            RepairPad[] pads = FindObjectsOfType<RepairPad>();
+            float deadSince = Time.realtimeSinceStartup;
+            float until = deadSince + movement.destroyDelayWhenDead + 5f;
+            Vector3 expected;
+            if (pads.Length > 0)
+            {
+                while (!(gameManager.overheadCamera.enabled && !gameManager.normalCamera.enabled) && Time.realtimeSinceStartup < until)
+                {
+                    yield return null;
+                }
+                bool view = gameManager.overheadCamera.enabled && !gameManager.normalCamera.enabled && Cursor.visible;
+                Check(phase + "-view", view, "after " + (Time.realtimeSinceStartup - deadSince).ToString("0.0") + " s dead: overhead camera=" +
+                    gameManager.overheadCamera.enabled + " normal camera=" + gameManager.normalCamera.enabled +
+                    " cursorVisible=" + Cursor.visible + ", repair pads in arena: " + pads.Length);
+                RepairPad pad = pads[0];
+                for (int i = 1; i < pads.Length; i++)
+                {
+                    if (Vector3.Distance(pads[i].transform.position, me.transform.position) < Vector3.Distance(pad.transform.position, me.transform.position))
+                    {
+                        pad = pads[i];
+                    }
+                }
+                expected = pad.transform.position + new Vector3(0f, 5f, 0f);
+                pad.SendMessage("OnMouseDown");
+            }
+            else
+            {
+                expected = new Vector3(0f, 5f, 0f);
+                while (movement.isDead && Time.realtimeSinceStartup < until)
+                {
+                    yield return null;
+                }
+                Debug.Log("GAMEPLAY: no repair pad in the arena - the game respawns the tank at the centre itself");
+            }
+            yield return StartCoroutine(Wait(1f));
+            float offset = Vector3.Distance(new Vector3(me.transform.position.x, 0f, me.transform.position.z), new Vector3(expected.x, 0f, expected.z));
+            bool alive = !movement.isDead && hp.health == hp.maxHealth && (fuel == null || fuel.fuel == fuel.maxFuel);
+            bool views = gameManager.normalCamera.enabled && !gameManager.overheadCamera.enabled && !Cursor.visible;
+            Check(phase, alive && views && offset < 5f,
+                "isDead=" + movement.isDead + " health=" + hp.health + "/" + hp.maxHealth +
+                " fuel=" + (fuel == null ? "?" : fuel.fuel + "/" + fuel.maxFuel) + ", " + offset.ToString("0.0") +
+                " m from the respawn point, normal camera=" + gameManager.normalCamera.enabled +
+                " overhead=" + gameManager.overheadCamera.enabled + " cursorVisible=" + Cursor.visible);
+            // Let the tank come down from the respawn height before anything else happens.
+            yield return StartCoroutine(Wait(3f));
+        }
+
+        // self-destruct (row 11): the V key's handler (selfDestruct.Trigger) plays the effect; when it
+        // ends the blast damages every unit with hit points within sphereRadius (more the closer it
+        // is) and kills the tank. An enemy turret 4 m away must be damaged or destroyed, the tank must
+        // die, and the respawn flow must bring it back again.
+        private IEnumerator SelfDestructAndRespawn(GameObject me, Com.Wulfram3.Unit myUnit)
+        {
+            selfDestruct destruct = me.GetComponent<selfDestruct>();
+            Com.Wulfram3.PlayerMovementManager movement = me.GetComponent<Com.Wulfram3.PlayerMovementManager>();
+            if (destruct == null)
+            {
+                Check("self-destruct", false, "player tank has no selfDestruct component");
+                yield break;
+            }
+            string prefab = myUnit.team.ToLower() == "red" ? "BlueFlakTurret" : "RedFlakTurret";
+            Vector3 spot = me.transform.position + Vector3.ProjectOnPlane(me.transform.forward, Vector3.up).normalized * 4f;
+            GameObject victim = PhotonNetwork.Instantiate(prefab, spot, Quaternion.identity, 0);
+            Com.Wulfram3.FlakTurretManager ai = victim.GetComponent<Com.Wulfram3.FlakTurretManager>();
+            if (ai != null)
+            {
+                ai.enabled = false;
+            }
+            Rigidbody victimBody = victim.GetComponent<Rigidbody>();
+            if (victimBody != null)
+            {
+                victimBody.isKinematic = true;
+            }
+            Com.Wulfram3.HitPointsManager victimHp = victim.GetComponent<Com.Wulfram3.HitPointsManager>();
+            yield return StartCoroutine(Wait(0.5f));
+            int victimBefore = victimHp == null ? -1 : victimHp.health;
+            float distance = Vector3.Distance(victim.transform.position, me.transform.position);
+
+            // Friendly units in range too: the blast damages every HitPointsManager in its sphere,
+            // whatever its team (the first run lost one of the two repair pads - the tank had just
+            // respawned on it). Recorded, not judged: whether that is intended is a design question.
+            List<Com.Wulfram3.HitPointsManager> nearby = new List<Com.Wulfram3.HitPointsManager>();
+            List<int> nearbyBefore = new List<int>();
+            List<string> nearbyNames = new List<string>();
+            Com.Wulfram3.HitPointsManager[] all = FindObjectsOfType<Com.Wulfram3.HitPointsManager>();
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].gameObject != me && all[i] != victimHp &&
+                    Vector3.Distance(all[i].transform.position, me.transform.position) <= destruct.sphereRadius + 1f)
+                {
+                    nearby.Add(all[i]);
+                    nearbyBefore.Add(all[i].health);
+                    Com.Wulfram3.Unit unit = all[i].GetComponent<Com.Wulfram3.Unit>();
+                    nearbyNames.Add("'" + all[i].name + "' team=" + (unit == null ? "?" : unit.team) + " " +
+                        Vector3.Distance(all[i].transform.position, me.transform.position).ToString("0.0") + " m away");
+                }
+            }
+
+            destruct.Trigger();
+            float armed = Time.realtimeSinceStartup;
+            float until = armed + 20f;
+            while (!movement.isDead && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            float blastAfter = Time.realtimeSinceStartup - armed;
+            yield return StartCoroutine(Wait(0.5f));
+            bool victimHit = victim == null || (victimHp != null && victimHp.health < victimBefore);
+            Check("self-destruct", movement.isDead && victimHit,
+                "blast " + blastAfter.ToString("0.0") + " s after arming, tank isDead=" + movement.isDead +
+                "; enemy turret " + distance.ToString("0.0") + " m away (radius " + destruct.sphereRadius + "): " +
+                (victim == null ? "destroyed" : "health " + victimBefore + " -> " + (victimHp == null ? "?" : victimHp.health.ToString())));
+            for (int i = 0; i < nearby.Count; i++)
+            {
+                Debug.Log("GAMEPLAY: blast also hit " + nearbyNames[i] + ": health " + nearbyBefore[i] + " -> " +
+                    (nearby[i] == null ? "destroyed" : nearby[i].health.ToString()));
+            }
+            if (movement.isDead)
+            {
+                yield return StartCoroutine(Respawn("respawn-after-self-destruct", me));
+            }
         }
 
         private IEnumerator CannonFuelDestroy(GameObject me, Com.Wulfram3.Unit myUnit)

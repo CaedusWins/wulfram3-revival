@@ -27,10 +27,22 @@ public class selfDestruct : Photon.PunBehaviour
             }
             if (!fired && Input.GetKeyDown(KeyCode.V)) // Detect user input, disallow repeat triggering with 'fired' flag
             {
-                fired = true;
-                photonView.RPC("playParticles", PhotonTargets.All); // Activates the effects on this tank for all players
+                Trigger();
             }
         }
+    }
+
+    // Arms the self-destruct, as pressing V does: plays the effect on this tank for all players, and
+    // Update applies the blast when the effect ends. Only on the owner's tank, and only once until
+    // the blast. Public for the L1 gameplay smoke test (Unity 2017 can't fake key presses).
+    public void Trigger()
+    {
+        if (fired || !photonView.isMine)
+        {
+            return;
+        }
+        fired = true;
+        photonView.RPC("playParticles", PhotonTargets.All); // Activates the effects on this tank for all players
     }
 
     private void doDamage()
