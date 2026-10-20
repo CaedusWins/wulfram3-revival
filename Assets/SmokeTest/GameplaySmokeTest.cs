@@ -115,8 +115,56 @@ namespace Wulfram.SmokeTest
                 Finish();
                 yield break;
             }
-            // Let the tank settle on its hover height and every Start() run.
-            yield return StartCoroutine(Wait(3f));
+            // Let every Start() run, then wait until the tank has come down from its spawn point to
+            // its hover height (third run: it was still sinking from 7.7 to about 3 while the cannon
+            // phase ran). Settled = height changed less than 5 cm over the last second.
+            yield return StartCoroutine(Wait(1f));
+            float settleStart = Time.realtimeSinceStartup;
+            float lastY = me.transform.position.y;
+            float settleDeadline = settleStart + 20f;
+            bool settled = false;
+            while (!settled && Time.realtimeSinceStartup < settleDeadline)
+            {
+                yield return StartCoroutine(Wait(1f));
+                float y = me.transform.position.y;
+                settled = Mathf.Abs(y - lastY) < 0.05f;
+                lastY = y;
+            }
+            Debug.Log("GAMEPLAY: tank " + (settled ? "settled" : "STILL MOVING") + " at height " + lastY.ToString("0.00") +
+                " after " + (Time.realtimeSinceStartup - settleStart).ToString("0.0") + " s");
+
+            // Turn to open ground the way a player does with the mouse: PlayerMovementManager keeps the
+            // mouse-look yaw in rotationX and applies it every Update. The settled tank faces a hill
+            // (fourth run: terrain 2 m in front of the barrel), so turn in 30 degree steps until the
+            // line of fire is clear for 12 m.
+            bool clear = false;
+            System.Reflection.FieldInfo yaw = typeof(Com.Wulfram3.PlayerMovementManager).GetField("rotationX",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Com.Wulfram3.PlayerMovementManager movement = me.GetComponent<Com.Wulfram3.PlayerMovementManager>();
+            float heading = 0f;
+            if (yaw == null || movement == null || yaw.FieldType != typeof(float))
+            {
+                Check("aim", false, "can't turn the tank: PlayerMovementManager.rotationX (mouse-look yaw) not found");
+            }
+            else
+            {
+                for (int step = 0; step < 12 && !clear; step++)
+                {
+                    heading = step * 30f;
+                    yaw.SetValue(movement, heading);
+                    yield return null;
+                    yield return null;
+                    Vector3 from = me.transform.position + (me.transform.forward * 1.0f + me.transform.up * 0.2f);
+                    clear = !Physics.Raycast(from, me.transform.forward, 12f);
+                }
+                Check("aim", clear, clear ? "turned to mouse-look yaw " + heading + " deg, line of fire clear for 12 m" :
+                    "no heading with a clear 12 m line of fire");
+            }
+            if (!clear)
+            {
+                Finish();
+                yield break;
+            }
 
             Com.Wulfram3.Unit myUnit = me.GetComponent<Com.Wulfram3.Unit>();
             Debug.Log("GAMEPLAY: player tank '" + me.name + "' team=" + (myUnit == null ? "?" : myUnit.team) +
@@ -139,27 +187,55 @@ namespace Wulfram.SmokeTest
                 " damage=" + cannon.bulletDamageinHitpoints + " fuelPerBullet=" + cannon.fuelPerBullet +
                 " fuel=" + fuel.fuel + "/" + fuel.maxFuel + " fuelRegen=" + fuel.fuelRegenerationPerSecond + "/s");
 
-            // A real enemy unit, on the ground 10 m in front of the tank (the tank's rotation is driven
-            // by mouse look every frame, so the target comes to the tank rather than the other way).
-            string prefab = myUnit.team.ToLower() == "red" ? "BlueFlakTurret" : "RedFlakTurret";
-            Vector3 spot = me.transform.position + Vector3.ProjectOnPlane(me.transform.forward, Vector3.up).normalized * 10f;
-            Terrain terrain = Terrain.activeTerrain;
-            if (terrain != null)
+            // A real enemy unit, centred on the cannon's line of fire. The tank's rotation is driven by
+            // mouse look every frame (and it can sit nose-down: on the first run the straight shot hit
+            // the terrain 4.5 m ahead), so the target is put where the barrel points - in front of any
+            // terrain in the way - instead of the tank being turned towards a target.
+            Vector3 origin = me.transform.position + (me.transform.forward * 1.0f + me.transform.up * 0.2f);
+            Vector3 aim = me.transform.forward;
+            float distance = 10f;
+            RaycastHit ground;
+            if (Physics.Raycast(origin, aim, out ground, distance + 2f))
             {
-                spot.y = terrain.SampleHeight(spot) + terrain.transform.position.y;
+                distance = Mathf.Max(2.5f, ground.distance - 1.5f);
             }
-            GameObject target = PhotonNetwork.Instantiate(prefab, spot, Quaternion.LookRotation(-me.transform.forward), 0);
+            Debug.Log("GAMEPLAY: aim pitch=" + (-Mathf.Asin(Mathf.Clamp(aim.y, -1f, 1f)) * Mathf.Rad2Deg).ToString("0.0") +
+                " deg (positive = nose down); first thing on the line: " +
+                (ground.collider == null ? "nothing within 12 m" : "'" + ground.transform.name + "' at " + ground.distance.ToString("0.0") + " m") +
+                "; target goes " + distance.ToString("0.0") + " m out");
+
+            string prefab = myUnit.team.ToLower() == "red" ? "BlueFlakTurret" : "RedFlakTurret";
+            Vector3 spot = origin + aim * distance;
+            GameObject target = PhotonNetwork.Instantiate(prefab, spot, Quaternion.LookRotation(-Vector3.ProjectOnPlane(aim, Vector3.up)), 0);
             Com.Wulfram3.FlakTurretManager ai = target.GetComponent<Com.Wulfram3.FlakTurretManager>();
             if (ai != null)
             {
                 ai.enabled = false;
             }
+            // Hold it where it was put, and move it so the middle of its colliders is on the line.
+            Rigidbody targetBody = target.GetComponent<Rigidbody>();
+            if (targetBody != null)
+            {
+                targetBody.isKinematic = true;
+            }
+            Collider[] targetColliders = target.GetComponentsInChildren<Collider>();
+            Vector3 centreOffset = Vector3.zero;
+            if (targetColliders.Length > 0)
+            {
+                Bounds bounds = targetColliders[0].bounds;
+                for (int i = 1; i < targetColliders.Length; i++)
+                {
+                    bounds.Encapsulate(targetColliders[i].bounds);
+                }
+                centreOffset = bounds.center - target.transform.position;
+                target.transform.position = spot - centreOffset;
+            }
             Com.Wulfram3.HitPointsManager targetHp = target.GetComponent<Com.Wulfram3.HitPointsManager>();
             Com.Wulfram3.Unit targetUnit = target.GetComponent<Com.Wulfram3.Unit>();
             yield return StartCoroutine(Wait(1f));
 
-            // What the cannon's ray hits from where the tank is now (the same origin TryFire uses).
-            Vector3 origin = me.transform.position + (me.transform.forward * 1.0f + me.transform.up * 0.2f);
+            // What the cannon's ray hits now (the same origin and direction TryFire uses, without spread).
+            origin = me.transform.position + (me.transform.forward * 1.0f + me.transform.up * 0.2f);
             RaycastHit probe;
             bool rayHits = Physics.Raycast(origin, me.transform.forward, out probe, cannon.range);
             Debug.Log("GAMEPLAY: target " + prefab + " at " + target.transform.position + " team=" +
@@ -173,17 +249,29 @@ namespace Wulfram.SmokeTest
                 yield break;
             }
 
-            // cannon: hold the trigger for 2 s.
+            // cannon: hold the trigger for 2 s. The hovering tank bobs and pitches (second run: level
+            // when the target was placed, the ray in the terrain 4.5 m out a second later), so every
+            // frame the target is put back on the barrel's line, in front of any terrain - this checks
+            // that a bullet reaching a unit damages it; how the tank moves is measured and reported.
             int healthBefore = targetHp.health;
             int fuelBefore = fuel.fuel;
             int lowestFuel = fuel.fuel;
+            float minPitch = 999f, maxPitch = -999f, minY = 99999f, maxY = -99999f;
             float hold = Time.realtimeSinceStartup + 2f;
             while (Time.realtimeSinceStartup < hold)
             {
+                KeepOnLine(me, target, centreOffset);
                 cannon.TryFire();
                 lowestFuel = Mathf.Min(lowestFuel, fuel.fuel);
+                float pitch = -Mathf.Asin(Mathf.Clamp(me.transform.forward.y, -1f, 1f)) * Mathf.Rad2Deg;
+                minPitch = Mathf.Min(minPitch, pitch);
+                maxPitch = Mathf.Max(maxPitch, pitch);
+                minY = Mathf.Min(minY, me.transform.position.y);
+                maxY = Mathf.Max(maxY, me.transform.position.y);
                 yield return null;
             }
+            Debug.Log("GAMEPLAY: while firing the tank's pitch ranged " + minPitch.ToString("0.0") + ".." + maxPitch.ToString("0.0") +
+                " deg (positive = nose down), height " + minY.ToString("0.00") + ".." + maxY.ToString("0.00"));
             yield return StartCoroutine(Wait(0.5f));
             int healthAfter = targetHp.health;
             Check("cannon", healthAfter < healthBefore && lowestFuel < fuelBefore,
@@ -219,6 +307,7 @@ namespace Wulfram.SmokeTest
             {
                 if (target != null)
                 {
+                    KeepOnLine(me, target, centreOffset);
                     cannon.TryFire();
                 }
                 else if (afterGone < 0f)
@@ -237,6 +326,24 @@ namespace Wulfram.SmokeTest
             Check("destroy", target == null && newExplosions > 0,
                 "target at " + healthBeforeFinish + " health " + (target == null ? "was removed" : "STILL THERE (health " + targetHp.health + ")") +
                 ", new '" + explosionName + "' explosions: " + newExplosions);
+        }
+
+        // Puts the target's collider centre on the cannon's line of fire (TryFire's origin and
+        // direction), up to 10 m out but in front of anything else on the line.
+        private static void KeepOnLine(GameObject me, GameObject target, Vector3 centreOffset)
+        {
+            Vector3 origin = me.transform.position + (me.transform.forward * 1.0f + me.transform.up * 0.2f);
+            Vector3 aim = me.transform.forward;
+            float distance = 10f;
+            RaycastHit[] hits = Physics.RaycastAll(origin, aim, distance + 2f);
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (!hits[i].transform.IsChildOf(target.transform) && !hits[i].transform.IsChildOf(me.transform))
+                {
+                    distance = Mathf.Min(distance, Mathf.Max(2.5f, hits[i].distance - 1.5f));
+                }
+            }
+            target.transform.position = origin + aim * distance - centreOffset;
         }
 
         private static HashSet<int> FindExplosions(string prefabName)
