@@ -6,7 +6,7 @@
 #                         [--stress N]
 #
 # Everything it prints is also saved as <out>/SUMMARY.txt (date, commit, flags, every step, the
-# verdict), next to the step logs. --stress N runs each built-player smoke step (6, 6b, 6c) N times,
+# verdict), next to the step logs. --stress N runs each built-player smoke step (6, 6b, 6e, 6c) N times,
 # each run with its own log and PASS/FAIL line, to catch flaky results.
 #
 # Steps - each one fails loudly, and the script exits non-zero if any step failed:
@@ -19,6 +19,10 @@
 #                 warning except the known one ('Sun' in Resources/Terrains/Tron.prefab).
 #   6. smoke      the built player with -batchmode -offlineSmokeTest: "SMOKE: PASS".
 #   6b.           the same with -offlinePlay: enters through the launcher's real Play button.
+#   6e. gameplay  L1 gameplay smoke (-offlinePlay -gameplaySmokeTest, headless): turns to open ground,
+#                 fires the AutoCannon at a real enemy unit (health drops, fuel is spent), fuel
+#                 regenerates, the cannon destroys the unit (removed + explosion). "GAMEPLAY: PASS".
+#                 (6d is taken by the parked feature/join-same-room.)
 #   6c. online   only with --online (needs the Photon App ID + internet): M2 - two clients through the
 #                 real Play button on Photon Cloud must share one room, see 2 players + 2 tanks, and
 #                 deal damage both ways via the game's network damage path (TellServerTakeDamage),
@@ -176,7 +180,7 @@ else
   built=0
 fi
 
-# Steps 6-6c run the built player; with --stress N each runs N times, every run with its own log
+# Steps 6-6e run the built player; with --stress N each runs N times, every run with its own log
 # (suffix -rK) and its own PASS/FAIL line, so a flaky step shows up as a failed repeat.
 # run_tag <k> - "" for a single run, "-r<k>" when stressed; run_label <k> - " (run k/N)" likewise
 run_tag() { [ "$STRESS" -gt 1 ] && echo "-r$1"; }
@@ -203,6 +207,18 @@ smoke_offline_play() {
     pass "smoke (offline play, through the Play button)$(run_label "$1")"
   else
     fail "smoke (offline play)$(run_label "$1") - see $log"
+  fi
+}
+
+# 6e. L1 gameplay smoke: plays the core loop offline through the game's own code (GameplaySmokeTest)
+smoke_gameplay() {
+  local log="$OUT/6e-gameplay$(run_tag "$1").log"
+  timeout 300 "$player" -batchmode -offlinePlay -gameplaySmokeTest > "$log" 2>&1
+  tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy) (PASS|FAIL)|exceptions=|problem)' | sed 's/^/        /'
+  if tr -d '\r' < "$log" | grep -q '^GAMEPLAY: PASS$'; then
+    pass "gameplay (aim, cannon, fuel, destroy)$(run_label "$1")"
+  else
+    fail "gameplay$(run_label "$1") - see $log"
   fi
 }
 
@@ -239,12 +255,14 @@ online_pair() {
 if [ "$built" -eq 1 ]; then
   for k in $(seq 1 "$STRESS"); do smoke_headless "$k"; done
   for k in $(seq 1 "$STRESS"); do smoke_offline_play "$k"; done
+  for k in $(seq 1 "$STRESS"); do smoke_gameplay "$k"; done
   if [ "$ONLINE" -eq 1 ]; then
     for k in $(seq 1 "$STRESS"); do online_pair "$k"; done
   fi
 else
   fail "smoke (headless) - skipped, no build"
   fail "smoke (offline play) - skipped, no build"
+  fail "gameplay - skipped, no build"
   [ "$ONLINE" -eq 1 ] && fail "online M2 - skipped, no build"
 fi
 
