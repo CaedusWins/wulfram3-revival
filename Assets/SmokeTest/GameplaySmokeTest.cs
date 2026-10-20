@@ -17,6 +17,8 @@ namespace Wulfram.SmokeTest
     ///   cannon   (row 5)  hold the trigger at a real enemy unit: its health drops, fuel is spent
     ///   fuel     (row 7)  let go: fuel regenerates
     ///   destroy  (row 15) the cannon finishes the unit: the master removes it and spawns an explosion
+    ///   pulse    (row 6)  the right mouse button's handler (TryFirePulse): fuelPerPulse spent, reload
+    ///                     enforced, the shell hits a real enemy unit (damage), explodes and is removed
     ///   death    (row 10) lethal damage: the tank is dead and its cannon refuses to fire
     ///   respawn  (row 10) the overhead map + cursor after destroyDelayWhenDead, then a click on a repair
     ///                     pad (its own OnMouseDown) brings the tank back with full health and fuel
@@ -175,9 +177,130 @@ namespace Wulfram.SmokeTest
             Debug.Log("GAMEPLAY: player tank '" + me.name + "' team=" + (myUnit == null ? "?" : myUnit.team) +
                 " at " + me.transform.position + " cursorVisible=" + Cursor.visible + " lockState=" + Cursor.lockState);
             yield return StartCoroutine(CannonFuelDestroy(me, myUnit));
+            yield return StartCoroutine(Pulse(me, myUnit));
             yield return StartCoroutine(DeathAndRespawn(me));
             yield return StartCoroutine(SelfDestructAndRespawn(me, myUnit));
             Finish();
+        }
+
+        // pulse (row 6): the right mouse button's handler (PlayerMovementManager.TryFirePulse) fires a
+        // slow, heavy shell at a real enemy unit on the line of fire. It must spend exactly
+        // fuelPerPulse, refuse an immediate second shot (reload), spawn a shell that hits, damages the
+        // target by at least the shell's directHitpointsDamage (the impact explosion's splash can add
+        // more), leaves an explosion and is removed.
+        private IEnumerator Pulse(GameObject me, Com.Wulfram3.Unit myUnit)
+        {
+            Com.Wulfram3.PlayerMovementManager movement = me.GetComponent<Com.Wulfram3.PlayerMovementManager>();
+            Com.Wulfram3.FuelManager fuel = me.GetComponent<Com.Wulfram3.FuelManager>();
+            Com.Wulfram3.HitPointsManager myHp = me.GetComponent<Com.Wulfram3.HitPointsManager>();
+            Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
+            GameObject target = SpawnEnemyOnLine(me, myUnit, 10f);
+            Com.Wulfram3.HitPointsManager targetHp = target.GetComponent<Com.Wulfram3.HitPointsManager>();
+            yield return StartCoroutine(Wait(1f));
+            if (targetHp == null || movement == null || fuel == null)
+            {
+                Check("pulse", false, "missing " + (targetHp == null ? "target HitPointsManager " : "") +
+                    (movement == null ? "PlayerMovementManager " : "") + (fuel == null ? "FuelManager" : ""));
+                yield break;
+            }
+            string explosionName = gameManager == null || gameManager.explosionPrefab == null ? "?" : gameManager.explosionPrefab.name;
+            HashSet<int> oldExplosions = FindExplosions(explosionName);
+            int healthBefore = targetHp.health;
+            int myHealthBefore = myHp == null ? -1 : myHp.health;
+            int fuelBefore = fuel.fuel;
+            bool fired = movement.TryFirePulse();
+            int fuelAfterShot = fuel.fuel;
+            bool secondShot = movement.TryFirePulse();
+
+            int shellDamage = -1;
+            HashSet<int> shellsSeen = new HashSet<int>();
+            List<Com.Wulfram3.PulseShellManager> shells = new List<Com.Wulfram3.PulseShellManager>();
+            int newExplosions = 0;
+            float until = Time.realtimeSinceStartup + 4f;
+            while (Time.realtimeSinceStartup < until)
+            {
+                Com.Wulfram3.PulseShellManager[] live = FindObjectsOfType<Com.Wulfram3.PulseShellManager>();
+                for (int i = 0; i < live.Length; i++)
+                {
+                    if (shellsSeen.Add(live[i].GetInstanceID()))
+                    {
+                        shells.Add(live[i]);
+                        shellDamage = live[i].directHitpointsDamage;
+                    }
+                }
+                foreach (int id in FindExplosions(explosionName))
+                {
+                    if (oldExplosions.Add(id))
+                    {
+                        newExplosions++;
+                    }
+                }
+                bool shellsGone = true;
+                for (int i = 0; i < shells.Count; i++)
+                {
+                    shellsGone = shellsGone && shells[i] == null;
+                }
+                if (shells.Count > 0 && shellsGone && newExplosions > 0 && targetHp.health < healthBefore)
+                {
+                    break;
+                }
+                yield return null;
+            }
+            bool allGone = true;
+            for (int i = 0; i < shells.Count; i++)
+            {
+                allGone = allGone && shells[i] == null;
+            }
+            int lost = healthBefore - targetHp.health;
+            Check("pulse", fired && !secondShot && fuelBefore - fuelAfterShot == movement.fuelPerPulse && shells.Count == 1 &&
+                allGone && newExplosions > 0 && shellDamage > 0 && lost >= shellDamage,
+                "fired=" + fired + " fuel " + fuelBefore + " -> " + fuelAfterShot + " (fuelPerPulse " + movement.fuelPerPulse +
+                "), immediate second shot refused=" + !secondShot + ", shells seen " + shells.Count + " removed=" + allGone +
+                ", target health " + healthBefore + " -> " + targetHp.health + " (shell damage " + shellDamage + "), explosions " +
+                newExplosions + "; own tank health " + myHealthBefore + " -> " + (myHp == null ? "?" : myHp.health.ToString()));
+            if (target != null)
+            {
+                PhotonNetwork.Destroy(target);
+            }
+            yield return StartCoroutine(Wait(0.5f));
+        }
+
+        // A real enemy flak turret (AI off, held in place) whose collider centre is on the cannon's
+        // line of fire, `distance` out (or in front of anything closer). Same placement as the cannon
+        // phase.
+        private static GameObject SpawnEnemyOnLine(GameObject me, Com.Wulfram3.Unit myUnit, float distance)
+        {
+            Vector3 origin = me.transform.position + (me.transform.forward * 1.0f + me.transform.up * 0.2f);
+            Vector3 aim = me.transform.forward;
+            RaycastHit ground;
+            if (Physics.Raycast(origin, aim, out ground, distance + 2f))
+            {
+                distance = Mathf.Max(2.5f, ground.distance - 1.5f);
+            }
+            string prefab = myUnit.team.ToLower() == "red" ? "BlueFlakTurret" : "RedFlakTurret";
+            Vector3 spot = origin + aim * distance;
+            GameObject target = PhotonNetwork.Instantiate(prefab, spot, Quaternion.LookRotation(-Vector3.ProjectOnPlane(aim, Vector3.up)), 0);
+            Com.Wulfram3.FlakTurretManager ai = target.GetComponent<Com.Wulfram3.FlakTurretManager>();
+            if (ai != null)
+            {
+                ai.enabled = false;
+            }
+            Rigidbody body = target.GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                body.isKinematic = true;
+            }
+            Collider[] colliders = target.GetComponentsInChildren<Collider>();
+            if (colliders.Length > 0)
+            {
+                Bounds bounds = colliders[0].bounds;
+                for (int i = 1; i < colliders.Length; i++)
+                {
+                    bounds.Encapsulate(colliders[i].bounds);
+                }
+                target.transform.position += spot - bounds.center;
+            }
+            return target;
         }
 
         // death (row 10): lethal damage through the network damage path (the call self-destruct

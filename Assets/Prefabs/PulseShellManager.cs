@@ -28,7 +28,10 @@ namespace Com.Wulfram3 {
             if (photonView.owner.IsLocal) {
                 HitPointsManager hitpoints = col.gameObject.GetComponent<HitPointsManager>();
                 if (hitpoints != null) {
-                    hitpoints.TakeDamage(directHitpointsDamage);
+                    // Through the master client, like the AutoCannon: only the shooter's client handles
+                    // the collision, and TakeDamage only acts on the master, so calling it directly did
+                    // nothing when a non-master fired (same bug class as HealthRegenerator, PR #11).
+                    hitpoints.TellServerTakeDamage(directHitpointsDamage);
                 }
 
                 Vector3 pos = col.contacts[0].point;
