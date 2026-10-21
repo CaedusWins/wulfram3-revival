@@ -181,6 +181,8 @@ namespace Wulfram.SmokeTest
             yield return StartCoroutine(CannonFuelDestroy(me, myUnit));
             yield return StartCoroutine(Pulse(me, myUnit));
             yield return StartCoroutine(CargoPickupDropDeploy(me));
+            TeamAudit();
+            yield return StartCoroutine(TurretAttacks(me, myUnit));
             yield return StartCoroutine(DeathAndRespawn(me));
             yield return StartCoroutine(SelfDestructAndRespawn(me, myUnit));
             Finish();
@@ -410,6 +412,143 @@ namespace Wulfram.SmokeTest
             Check("deploy", previewShown && placement.currentPlaceableObject == null && unitsAfter == unitsBefore + 1 && hold.pickedUpCargo == "",
                 "carried '" + content + "': preview shown=" + previewShown + " gone after release=" + (placement.currentPlaceableObject == null) +
                 ", '" + unitName + "' count " + unitsBefore + " -> " + unitsAfter + " (deployed at " + deployAt + "), hold now '" + hold.pickedUpCargo + "'");
+        }
+
+        // teams (row 14): every unit prefab named Red* must be on team "red" and every Blue* on "blue";
+        // a turret's teamDetect (who it shoots) must be the other team. Nothing assigns teams at
+        // runtime, so the prefab is the truth. Other unit prefabs are listed for the record.
+        private void TeamAudit()
+        {
+            string[] prefabs = { "RedTank", "PlayerTank", "RedScout", "BlueScout", "RedFlakTurret", "BlueFlakTurret",
+                "BlueGunTurret", "RedPowerCell", "RepairPad" };
+            string wrong = "";
+            string listed = "";
+            for (int i = 0; i < prefabs.Length; i++)
+            {
+                GameObject prefab = Resources.Load<GameObject>(prefabs[i]);
+                Com.Wulfram3.Unit unit = prefab == null ? null : prefab.GetComponent<Com.Wulfram3.Unit>();
+                Com.Wulfram3.FlakTurretManager flak = prefab == null ? null : prefab.GetComponent<Com.Wulfram3.FlakTurretManager>();
+                Com.Wulfram3.GTManager gun = prefab == null ? null : prefab.GetComponent<Com.Wulfram3.GTManager>();
+                string detect = flak != null ? flak.teamDetect : (gun != null ? gun.teamDetect : null);
+                string team = unit == null ? null : unit.team;
+                listed += (listed.Length > 0 ? ", " : "") + prefabs[i] + "(team=" + (team == null ? "-" : "'" + team + "'") +
+                    (detect == null ? "" : " shoots='" + detect + "'") + ")";
+                string expected = prefabs[i].StartsWith("Red") ? "red" : (prefabs[i].StartsWith("Blue") ? "blue" : null);
+                if (prefab == null || unit == null)
+                {
+                    wrong += (wrong.Length > 0 ? "; " : "") + prefabs[i] + ": " + (prefab == null ? "no prefab in Resources" : "no Unit");
+                    continue;
+                }
+                if (expected != null && team != expected)
+                {
+                    wrong += (wrong.Length > 0 ? "; " : "") + prefabs[i] + " team '" + team + "' (expected '" + expected + "')";
+                }
+                if (expected != null && detect != null && detect != (expected == "red" ? "blue" : "red"))
+                {
+                    wrong += (wrong.Length > 0 ? "; " : "") + prefabs[i] + " shoots '" + detect + "' (expected '" + (expected == "red" ? "blue" : "red") + "')";
+                }
+            }
+            Debug.Log("GAMEPLAY: unit prefabs: " + listed);
+            Check("teams", wrong.Length == 0, wrong.Length == 0 ? "every Red*/Blue* unit prefab is on its team (canonical 'red'/'blue') and turrets shoot the other team" : wrong);
+
+            // The arena's own units (placed in Playground, possibly with their own values), grouped.
+            // Reported, not failed: scene data is fixed on its own branch; the game compares teams
+            // through Unit.SameTeam, so spelling variants ('BlueTeam') already work.
+            Dictionary<string, int> sceneUnits = new Dictionary<string, int>();
+            int hostileToOwnTeam = 0;
+            Com.Wulfram3.Unit[] units = FindObjectsOfType<Com.Wulfram3.Unit>();
+            for (int i = 0; i < units.Length; i++)
+            {
+                if (units[i].GetComponentInParent<Com.Wulfram3.PlayerMovementManager>() != null)
+                {
+                    continue;
+                }
+                Com.Wulfram3.FlakTurretManager flak = units[i].GetComponent<Com.Wulfram3.FlakTurretManager>();
+                Com.Wulfram3.GTManager gun = units[i].GetComponent<Com.Wulfram3.GTManager>();
+                string detect = flak != null ? flak.teamDetect : (gun != null ? gun.teamDetect : null);
+                if (detect != null && Com.Wulfram3.Unit.SameTeam(detect, units[i].team) && Com.Wulfram3.Unit.NormalizeTeam(detect) != "")
+                {
+                    hostileToOwnTeam++;
+                }
+                string key = units[i].gameObject.name + "(team='" + units[i].team + "'" + (detect == null ? "" : " shoots='" + detect + "'") + ")";
+                int n;
+                sceneUnits.TryGetValue(key, out n);
+                sceneUnits[key] = n + 1;
+            }
+            string sceneList = "";
+            foreach (KeyValuePair<string, int> pair in sceneUnits)
+            {
+                sceneList += (sceneList.Length > 0 ? ", " : "") + pair.Key + (pair.Value > 1 ? " x" + pair.Value : "");
+            }
+            Debug.Log("GAMEPLAY: arena units: " + sceneList);
+            if (hostileToOwnTeam > 0)
+            {
+                Debug.Log("GAMEPLAY: NOTE " + hostileToOwnTeam + " arena turret(s) shoot their own team");
+            }
+        }
+
+        // turret (row 14): a live enemy flak turret (AI on) 25 m away on open ground must find the
+        // tank, turn to it, fire flak shells and damage it. Runs on the master (offline: this client).
+        private IEnumerator TurretAttacks(GameObject me, Com.Wulfram3.Unit myUnit)
+        {
+            Com.Wulfram3.HitPointsManager myHp = me.GetComponent<Com.Wulfram3.HitPointsManager>();
+            Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
+            string prefab = myUnit.team.ToLower() == "red" ? "BlueFlakTurret" : "RedFlakTurret";
+            GameObject shellPrefab = gameManager == null ? null : gameManager.flakShellPrefab;
+            string shellParts = "";
+            if (shellPrefab != null)
+            {
+                Component[] parts = shellPrefab.GetComponents<Component>();
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    shellParts += (shellParts.Length > 0 ? "," : "") + (parts[i] == null ? "<missing>" : parts[i].GetType().Name);
+                }
+            }
+            Vector3 flat = Vector3.ProjectOnPlane(me.transform.forward, Vector3.up).normalized;
+            Vector3 spot = me.transform.position + flat * 25f;
+            Terrain terrain = Terrain.activeTerrain;
+            if (terrain != null)
+            {
+                spot.y = terrain.SampleHeight(spot) + terrain.transform.position.y;
+            }
+            GameObject turret = PhotonNetwork.Instantiate(prefab, spot, Quaternion.LookRotation(flat), 0);
+            Com.Wulfram3.FlakTurretManager ai = turret.GetComponent<Com.Wulfram3.FlakTurretManager>();
+            Debug.Log("GAMEPLAY: turret " + prefab + " at " + turret.transform.position + " shoots='" + (ai == null ? "?" : ai.teamDetect) +
+                "' reload=" + (ai == null ? 0f : ai.reloadTime) + "s scan=" + (ai == null ? 0f : ai.scanInterval) + "s; flak shell '" +
+                (shellPrefab == null ? "?" : shellPrefab.name) + "' = [" + shellParts + "]" +
+                (shellPrefab != null && shellPrefab.GetComponent<Com.Wulfram3.PulseShellManager>() != null ?
+                    " direct damage " + shellPrefab.GetComponent<Com.Wulfram3.PulseShellManager>().directHitpointsDamage : ""));
+            int healthBefore = myHp.health;
+            string shellName = shellPrefab == null ? "?" : shellPrefab.name;
+            HashSet<int> oldShells = FindExplosions(shellName);
+            int shellsFired = 0;
+            float bestAim = 180f;
+            float until = Time.realtimeSinceStartup + 25f;
+            while (Time.realtimeSinceStartup < until && turret != null && myHp.health >= healthBefore)
+            {
+                yield return null;
+                Vector3 toMe = me.transform.position - turret.transform.position;
+                bestAim = Mathf.Min(bestAim, Vector3.Angle(turret.transform.forward, toMe));
+                foreach (int id in FindExplosions(shellName))
+                {
+                    if (oldShells.Add(id))
+                    {
+                        shellsFired++;
+                    }
+                }
+            }
+            yield return StartCoroutine(Wait(1f));
+            int healthAfter = myHp.health;
+            Check("turret", ai != null && shellsFired > 0 && bestAim < 10f && healthAfter < healthBefore,
+                "enemy " + prefab + " 25 m away: best aim " + bestAim.ToString("0.0") + " deg off the tank, flak shells fired " + shellsFired +
+                ", tank health " + healthBefore + " -> " + healthAfter);
+            if (turret != null)
+            {
+                PhotonNetwork.Destroy(turret);
+            }
+            // Heal the tank back up for the phases after this one (as a repair pad would).
+            myHp.TellServerHealth(myHp.maxHealth);
+            yield return StartCoroutine(Wait(0.5f));
         }
 
         private static int CountNamed(string objectName)

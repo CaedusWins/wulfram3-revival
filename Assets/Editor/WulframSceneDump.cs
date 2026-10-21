@@ -46,6 +46,39 @@ namespace Wulfram.EditorTools
             Debug.Log("WulframSceneDump: wrote " + outPath + " (dirtyAfterOpen=" + scene.isDirty + ")");
         }
 
+        /// <summary>
+        /// The same for prefabs: every serialized property of every component of each prefab in
+        /// -prefabPaths (separated by ';'), to -dumpOut. Used to prove a re-saved prefab changed only
+        /// the intended values (binary prefabs can't be diffed directly).
+        /// </summary>
+        public static void DumpPrefabs()
+        {
+            string paths = Arg("-prefabPaths");
+            string outPath = Arg("-dumpOut");
+            if (paths == null || outPath == null)
+            {
+                Debug.LogError("WulframSceneDump: needs -prefabPaths and -dumpOut");
+                return;
+            }
+            StringBuilder sb = new StringBuilder();
+            foreach (string path in paths.Split(';'))
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                sb.AppendLine("# prefab " + path + (prefab == null ? " NOT FOUND" : ""));
+                if (prefab == null)
+                {
+                    continue;
+                }
+                Transform[] all = prefab.GetComponentsInChildren<Transform>(true);
+                for (int t = 0; t < all.Length; t++)
+                {
+                    DumpObject(sb, all[t].gameObject);
+                }
+            }
+            File.WriteAllText(outPath, sb.ToString());
+            Debug.Log("WulframSceneDump: wrote " + outPath);
+        }
+
         private static void DumpObject(StringBuilder sb, GameObject go)
         {
             string goPath = PathOf(go.transform);
