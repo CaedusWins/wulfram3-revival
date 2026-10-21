@@ -22,6 +22,8 @@ namespace Wulfram.SmokeTest
     ///   death    (row 10) lethal damage: the tank is dead and its cannon refuses to fire
     ///   respawn  (row 10) the overhead map + cursor after destroyDelayWhenDead, then a click on a repair
     ///                     pad (its own OnMouseDown) brings the tank back with full health and fuel
+    ///   cargo    (rows 12/13) what Q, Z and ',' + click do: pick up a box, drop it, pick it up
+    ///                     again and deploy it as a unit (preview, then the unit, hold emptied)
     ///   self-destruct (row 11) the V key's handler: the blast damages a nearby enemy and kills the
     ///                     tank, and respawn works again afterwards
     /// The target is a real enemy prefab (a flak turret from Resources) spawned in front of the tank,
@@ -178,6 +180,7 @@ namespace Wulfram.SmokeTest
                 " at " + me.transform.position + " cursorVisible=" + Cursor.visible + " lockState=" + Cursor.lockState);
             yield return StartCoroutine(CannonFuelDestroy(me, myUnit));
             yield return StartCoroutine(Pulse(me, myUnit));
+            yield return StartCoroutine(CargoPickupDropDeploy(me));
             yield return StartCoroutine(DeathAndRespawn(me));
             yield return StartCoroutine(SelfDestructAndRespawn(me, myUnit));
             Finish();
@@ -263,6 +266,164 @@ namespace Wulfram.SmokeTest
                 PhotonNetwork.Destroy(target);
             }
             yield return StartCoroutine(Wait(0.5f));
+        }
+
+        // cargo (rows 12/13): drive onto the nearest cargo box (the tank is put just above it and
+        // settles), then what Q, Z and ',' + click do: GameManager.PickUpCargo (the box goes, its
+        // content is on board), GameManager.DropCargo (a box with that content appears at the tank,
+        // the hold is empty), pick it up again, GroundPlacementController.TogglePlacement shows the
+        // placement preview and Release deploys the carried unit (preview gone, one more of that unit,
+        // hold empty).
+        private IEnumerator CargoPickupDropDeploy(GameObject me)
+        {
+            Com.Wulfram3.CargoManager hold = me.GetComponent<Com.Wulfram3.CargoManager>();
+            Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
+            GroundPlacementController placement = me.GetComponentInChildren<GroundPlacementController>(true);
+            Com.Wulfram3.Cargo[] boxes = FindObjectsOfType<Com.Wulfram3.Cargo>();
+            Dictionary<string, int> contents = new Dictionary<string, int>();
+            for (int i = 0; i < boxes.Length; i++)
+            {
+                string c = boxes[i].content == null ? "(null)" : "'" + boxes[i].content + "'";
+                int n;
+                contents.TryGetValue(c, out n);
+                contents[c] = n + 1;
+            }
+            string summary = "";
+            foreach (KeyValuePair<string, int> pair in contents)
+            {
+                summary += (summary.Length > 0 ? ", " : "") + pair.Key + " x" + pair.Value;
+            }
+            Debug.Log("GAMEPLAY: cargo boxes in the arena: " + boxes.Length + " (" + summary + ")");
+            // Deploying creates the unit from Resources by the box's content name, so a content that
+            // names no prefab there can be carried but never deployed. Reported, not failed: it is
+            // scene data, fixed on its own branch (docs/L1-LOCAL-PLAYABILITY.md, row 13).
+            string undeployable = "";
+            foreach (KeyValuePair<string, int> pair in contents)
+            {
+                string name = pair.Key.Trim('\'');
+                if (pair.Key == "(null)" || Resources.Load<GameObject>(name) == null)
+                {
+                    undeployable += (undeployable.Length > 0 ? ", " : "") + pair.Key + " x" + pair.Value;
+                }
+            }
+            if (undeployable.Length > 0)
+            {
+                Debug.Log("GAMEPLAY: NOTE cargo contents with no prefab in Resources (can't be deployed): " + undeployable);
+            }
+            if (hold == null || gameManager == null || placement == null)
+            {
+                Check("cargo-pickup", false, "missing " + (hold == null ? "CargoManager " : "") + (gameManager == null ? "GameManager " : "") +
+                    (placement == null ? "GroundPlacementController" : ""));
+                yield break;
+            }
+            Com.Wulfram3.Cargo box = null;
+            for (int i = 0; i < boxes.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(boxes[i].content) &&
+                    (box == null || Vector3.Distance(boxes[i].transform.position, me.transform.position) < Vector3.Distance(box.transform.position, me.transform.position)))
+                {
+                    box = boxes[i];
+                }
+            }
+            if (box == null)
+            {
+                Check("cargo-pickup", false, "no cargo box with content in the arena");
+                yield break;
+            }
+
+            // Drive onto it.
+            Rigidbody body = me.GetComponent<Rigidbody>();
+            Vector3 onTop = box.transform.position + Vector3.up * 2f;
+            if (body != null)
+            {
+                body.velocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+                body.position = onTop;
+            }
+            me.transform.position = onTop;
+            yield return StartCoroutine(Wait(2f));
+
+            // Q
+            string content = box.content;
+            int boxesBefore = FindObjectsOfType<Com.Wulfram3.Cargo>().Length;
+            float boxDistance = Vector3.Distance(box.transform.position, me.transform.position);
+            gameManager.PickUpCargo(hold);
+            float until = Time.realtimeSinceStartup + 3f;
+            while (hold.pickedUpCargo == "" && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            yield return StartCoroutine(Wait(0.5f));
+            int boxesAfter = FindObjectsOfType<Com.Wulfram3.Cargo>().Length;
+            Check("cargo-pickup", hold.pickedUpCargo == content && box == null && boxesAfter == boxesBefore - 1,
+                "box '" + content + "' " + boxDistance.ToString("0.0") + " m from the tank: on board '" + hold.pickedUpCargo +
+                "', box " + (box == null ? "removed" : "STILL THERE") + ", boxes " + boxesBefore + " -> " + boxesAfter);
+
+            // Z
+            HashSet<int> oldBoxes = new HashSet<int>();
+            Com.Wulfram3.Cargo[] now = FindObjectsOfType<Com.Wulfram3.Cargo>();
+            for (int i = 0; i < now.Length; i++)
+            {
+                oldBoxes.Add(now[i].GetInstanceID());
+            }
+            gameManager.DropCargo(hold);
+            until = Time.realtimeSinceStartup + 3f;
+            while (hold.pickedUpCargo != "" && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            yield return StartCoroutine(Wait(0.5f));
+            Com.Wulfram3.Cargo dropped = null;
+            now = FindObjectsOfType<Com.Wulfram3.Cargo>();
+            for (int i = 0; i < now.Length; i++)
+            {
+                if (!oldBoxes.Contains(now[i].GetInstanceID()))
+                {
+                    dropped = now[i];
+                }
+            }
+            Check("cargo-drop", hold.pickedUpCargo == "" && dropped != null && dropped.content == content &&
+                Vector3.Distance(dropped.transform.position, me.transform.position) < 5f,
+                "hold now '" + hold.pickedUpCargo + "', new box " + (dropped == null ? "NONE" : "'" + dropped.content + "' " +
+                Vector3.Distance(dropped.transform.position, me.transform.position).ToString("0.0") + " m from the tank"));
+
+            // Q again, then ',' and a click.
+            gameManager.PickUpCargo(hold);
+            until = Time.realtimeSinceStartup + 3f;
+            while (hold.pickedUpCargo == "" && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            yield return StartCoroutine(Wait(0.5f));
+            Debug.Log("GAMEPLAY: GroundPlacementController is on '" + placement.gameObject.name + "'" +
+                (placement.gameObject == me ? " (the tank itself)" : " (a child of the tank)") +
+                ", own PhotonView there: " + (placement.GetComponent<PhotonView>() != null));
+            string unitName = hold.pickedUpCargo + "(Clone)";
+            int unitsBefore = CountNamed(unitName);
+            placement.TogglePlacement();
+            yield return StartCoroutine(Wait(0.5f));
+            bool previewShown = placement.currentPlaceableObject != null;
+            Vector3 deployAt = placement.placeObject == null ? Vector3.zero : placement.placeObject.transform.position;
+            placement.Release();
+            yield return StartCoroutine(Wait(1f));
+            int unitsAfter = CountNamed(unitName);
+            Check("deploy", previewShown && placement.currentPlaceableObject == null && unitsAfter == unitsBefore + 1 && hold.pickedUpCargo == "",
+                "carried '" + content + "': preview shown=" + previewShown + " gone after release=" + (placement.currentPlaceableObject == null) +
+                ", '" + unitName + "' count " + unitsBefore + " -> " + unitsAfter + " (deployed at " + deployAt + "), hold now '" + hold.pickedUpCargo + "'");
+        }
+
+        private static int CountNamed(string objectName)
+        {
+            int count = 0;
+            GameObject[] all = FindObjectsOfType<GameObject>();
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].name == objectName)
+                {
+                    count++;
+                }
+            }
+            return count;
         }
 
         // A real enemy flak turret (AI off, held in place) whose collider centre is on the cannon's
