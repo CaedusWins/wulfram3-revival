@@ -23,7 +23,9 @@
 #                 fires the AutoCannon at a real enemy unit (health drops, fuel is spent), fuel
 #                 regenerates, the cannon destroys the unit (removed + explosion); the pulse cannon
 #                 (right mouse) spends its fuel, reloads, and its shell damages a unit; cargo: Q picks up
-#                 a box, Z drops it, ',' + click deploys it as a unit; lethal damage kills
+#                 a box, Z drops it, ',' + click deploys it as a unit; every Red*/Blue* unit prefab is on
+#                 its team and turrets shoot the other; a live enemy flak turret finds, aims at, fires
+#                 at and damages the tank; lethal damage kills
 #                 the tank (dead tanks can't fire), the overhead map + cursor appear, clicking a repair
 #                 pad respawns it (full health/fuel, normal camera); self-destruct (V) blasts a nearby
 #                 enemy and kills the tank, and respawn works again. "GAMEPLAY: PASS".
@@ -239,9 +241,9 @@ smoke_offline_play() {
 smoke_gameplay() {
   local log="$OUT/6e-gameplay$(run_tag "$1").log"
   timeout 300 "$player" -batchmode -offlinePlay -gameplaySmokeTest > "$log" 2>&1
-  tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy|pulse|cargo-pickup|cargo-drop|deploy|death|respawn[a-z-]*|self-destruct) (PASS|FAIL)|NOTE|exceptions=|problem)' | sed 's/^/        /'
+  tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy|pulse|cargo-pickup|cargo-drop|deploy|teams|turret|death|respawn[a-z-]*|self-destruct) (PASS|FAIL)|NOTE|exceptions=|problem)' | sed 's/^/        /'
   if tr -d '\r' < "$log" | grep -q '^GAMEPLAY: PASS$'; then
-    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, death, respawn, self-destruct)$(run_label "$1")"
+    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, teams, turret, death, respawn, self-destruct)$(run_label "$1")"
   else
     fail "gameplay$(run_label "$1") - see $log"
   fi
