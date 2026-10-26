@@ -1,0 +1,5 @@
+# Known findings of Tools/check-rpc.sh, not fixed yet. A new finding fails CI; so does a line here
+# that is no longer found (delete it in the commit that fixes it).
+#
+# Empty since 2026-10-20: the only two findings - the cargo RPCs sending the CargoManager component,
+# which only worked offline - were fixed in feature/l1-cargo (they now send the tank's PhotonView ID).

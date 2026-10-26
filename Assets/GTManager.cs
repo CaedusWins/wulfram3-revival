@@ -158,7 +158,7 @@ namespace Com.Wulfram3
                 RaycastHit objectHit;
                 Vector3 post = transform.position + (transform.forward * 3.0f + transform.up * 0.2f);
                 targetOnSight = Physics.Raycast(post, transform.forward, out objectHit, scanRadius) && objectHit.collider.transform.Equals(currentTarget);
-                if (targetOnSight && objectHit.transform.GetComponent<Unit>().team != this.gameObject.GetComponent<Unit>().team)
+                if (targetOnSight && !Unit.SameTeam(objectHit.transform.GetComponent<Unit>().team, this.gameObject.GetComponent<Unit>().team))
 
                 {
                     HitPointsManager hitPointsManager = objectHit.transform.GetComponent<HitPointsManager>();
@@ -176,7 +176,7 @@ namespace Com.Wulfram3
                 bool targetFound = Physics.Raycast(pos, targetDirection, out objectHit, range) && objectHit.transform.GetComponent<Unit>() != null;
                 //check if user is on same team
                 //CHANGED HERE
-                if (targetFound && objectHit.transform.GetComponent<Unit>().team != this.gameObject.GetComponent<Unit>().team) {
+                if (targetFound && !Unit.SameTeam(objectHit.transform.GetComponent<Unit>().team, this.gameObject.GetComponent<Unit>().team)) {
                     HitPointsManager hitPointsManager = objectHit.transform.GetComponent<HitPointsManager>();
                     if (hitPointsManager != null) {
                         hitPointsManager.TellServerTakeDamage(bulletDamageinHitpoints);
@@ -235,7 +235,7 @@ namespace Com.Wulfram3
                 var rigidbodies = new List<Rigidbody>();
                 foreach (var col in cols)
                 {
-                    if (col.attachedRigidbody != null && !rigidbodies.Contains(col.attachedRigidbody) && col.tag.Equals("Player") && col.GetComponent<Unit>().team == teamDetect)
+                    if (col.attachedRigidbody != null && !rigidbodies.Contains(col.attachedRigidbody) && col.tag.Equals("Player") && Unit.SameTeam(col.GetComponent<Unit>().team, teamDetect))
                     {
                         rigidbodies.Add(col.attachedRigidbody);
                     }

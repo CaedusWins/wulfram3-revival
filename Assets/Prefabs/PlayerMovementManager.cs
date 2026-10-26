@@ -144,11 +144,8 @@ namespace Com.Wulfram3 {
                 }
 
                 //Fire Pulse
-                if (Time.time >= timestamp && (Input.GetMouseButtonDown(1)) && this.gameObject.GetComponent<Unit>().unitType == Assets.InternalApis.Classes.UnitType.Tank) {
-                    if (GetComponent<FuelManager>().TakeFuel(fuelPerPulse)) {
-                        CmdFirePulseShell();
-                        timestamp = Time.time + timeBetweenShots;
-                    }
+                if (Input.GetMouseButtonDown(1)) {
+                    TryFirePulse();
                 }
 
                 //Tank Jump
@@ -229,6 +226,24 @@ namespace Com.Wulfram3 {
             isLanded = false;
             AudioSource.PlayClipAtPoint(takeoffSource, transform.position);
             GetComponent<AudioSource>().Play();
+        }
+
+        // One right-mouse press: fires a pulse shell if this is the owner's living tank (not a scout),
+        // the cursor is hidden, the pulse cannon has reloaded and there is fuel for it. Returns
+        // whether it fired. Public so the L1 gameplay smoke test can press it (Unity 2017 can't fake
+        // input); players reach it only through Update, which already checks the first three.
+        public bool TryFirePulse() {
+            if (!photonView.isMine || isDead || Cursor.visible) {
+                return false;
+            }
+            if (Time.time >= timestamp && this.gameObject.GetComponent<Unit>().unitType == Assets.InternalApis.Classes.UnitType.Tank) {
+                if (GetComponent<FuelManager>().TakeFuel(fuelPerPulse)) {
+                    CmdFirePulseShell();
+                    timestamp = Time.time + timeBetweenShots;
+                    return true;
+                }
+            }
+            return false;
         }
 
         void CmdFirePulseShell() {

@@ -6,7 +6,7 @@
 #                         [--stress N]
 #
 # Everything it prints is also saved as <out>/SUMMARY.txt (date, commit, flags, every step, the
-# verdict), next to the step logs. --stress N runs each built-player smoke step (6, 6b, 6c) N times,
+# verdict), next to the step logs. --stress N runs each built-player smoke step (6, 6b, 6e, 6c) N times,
 # each run with its own log and PASS/FAIL line, to catch flaky results.
 #
 # Steps - each one fails loudly, and the script exits non-zero if any step failed:
@@ -19,6 +19,17 @@
 #                 warning except the known one ('Sun' in Resources/Terrains/Tron.prefab).
 #   6. smoke      the built player with -batchmode -offlineSmokeTest: "SMOKE: PASS".
 #   6b.           the same with -offlinePlay: enters through the launcher's real Play button.
+#   6e. gameplay  L1 gameplay smoke (-offlinePlay -gameplaySmokeTest, headless): turns to open ground,
+#                 fires the AutoCannon at a real enemy unit (health drops, fuel is spent), fuel
+#                 regenerates, the cannon destroys the unit (removed + explosion); the pulse cannon
+#                 (right mouse) spends its fuel, reloads, and its shell damages a unit; cargo: Q picks up
+#                 a box, Z drops it, ',' + click deploys it as a unit; every Red*/Blue* unit prefab is on
+#                 its team and turrets shoot the other; a live enemy flak turret finds, aims at, fires
+#                 at and damages the tank; lethal damage kills
+#                 the tank (dead tanks can't fire), the overhead map + cursor appear, clicking a repair
+#                 pad respawns it (full health/fuel, normal camera); self-destruct (V) blasts a nearby
+#                 enemy and kills the tank, and respawn works again. "GAMEPLAY: PASS".
+#                 (6d is taken by the parked feature/join-same-room.)
 #   6c. online   only with --online (needs the Photon App ID + internet): M2 - two clients through the
 #                 real Play button on Photon Cloud must share one room, see 2 players + 2 tanks, and
 #                 deal damage both ways via the game's network damage path (TellServerTakeDamage),
@@ -105,20 +116,40 @@ run_unity() {
 compile_clean() {
   grep -q 'Exiting batchmode successfully' "$1" && ! grep -qE 'compilationhadfailure: True|error CS[0-9]+|BCE[0-9]+' "$1"
 }
+# compile_failure_cause <log> - why a compile that wasn't clean failed, for the report:
+#   a compiler process that crashed exits non-zero with no compiler error in the log (seen
+#   2026-10-20: mono.exe died with 0xC0000409 = exit code -1073740791, an environment fault);
+#   error CS lines are compile errors (in a working copy, typically Unity's stale script list).
+compile_failure_cause() {
+  local crash
+  crash=$(tr -d '\r' < "$1" | grep -oE 'exitcode: -?[1-9][0-9]*--compilationhadfailure: True--outfile: [^ ]+' | head -1)
+  if tr -d '\r' < "$1" | grep -qE 'error CS[0-9]+|BCE[0-9]+'; then
+    echo "compile errors (in a working copy, typically Unity's stale script list after files were added/removed)"
+  elif [ -n "$crash" ]; then
+    echo "the compiler process crashed (${crash%%--*} building ${crash##*outfile: }), no compile errors"
+  elif ! tr -d '\r' < "$1" | grep -q 'Exiting batchmode successfully'; then
+    echo "Unity didn't finish (no 'Exiting batchmode successfully')"
+  else
+    echo "compilationhadfailure with no compile errors or crash exit code"
+  fi
+}
+
 log="$OUT/1-compile.log"
 run_unity "$log"
 if compile_clean "$log"; then
   pass "compile"
 else
-  # In an existing working copy, the first compile after scripts are added or removed runs on
-  # Unity's stale file list and fails (e.g. CS0234 for a just-added namespace) before Unity
-  # refreshes. A real error fails again; fresh clones never hit this.
+  # Rerun once: in an existing working copy the first compile after scripts are added or removed
+  # runs on Unity's stale file list and fails (e.g. CS0234 for a just-added namespace) before Unity
+  # refreshes, and Unity 2017's mono.exe has crashed mid-compile on this machine. A real error fails
+  # again. The report says which it was.
+  cause=$(compile_failure_cause "$log")
   rerun="$OUT/1-compile-rerun.log"
   run_unity "$rerun"
   if compile_clean "$rerun"; then
-    pass "compile (first run failed on Unity's stale script list after files were added/removed; rerun clean - see $log)"
+    pass "compile (first run failed: $cause; rerun clean - see $log)"
   else
-    fail "compile - see $log and $rerun"
+    fail "compile - first run: $cause; rerun: $(compile_failure_cause "$rerun") - see $log and $rerun"
   fi
 fi
 
@@ -176,7 +207,7 @@ else
   built=0
 fi
 
-# Steps 6-6c run the built player; with --stress N each runs N times, every run with its own log
+# Steps 6-6e run the built player; with --stress N each runs N times, every run with its own log
 # (suffix -rK) and its own PASS/FAIL line, so a flaky step shows up as a failed repeat.
 # run_tag <k> - "" for a single run, "-r<k>" when stressed; run_label <k> - " (run k/N)" likewise
 run_tag() { [ "$STRESS" -gt 1 ] && echo "-r$1"; }
@@ -203,6 +234,18 @@ smoke_offline_play() {
     pass "smoke (offline play, through the Play button)$(run_label "$1")"
   else
     fail "smoke (offline play)$(run_label "$1") - see $log"
+  fi
+}
+
+# 6e. L1 gameplay smoke: plays the core loop offline through the game's own code (GameplaySmokeTest)
+smoke_gameplay() {
+  local log="$OUT/6e-gameplay$(run_tag "$1").log"
+  timeout 300 "$player" -batchmode -offlinePlay -gameplaySmokeTest > "$log" 2>&1
+  tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy|pulse|cargo-pickup|cargo-drop|deploy|teams|turret|death|respawn[a-z-]*|self-destruct) (PASS|FAIL)|NOTE|exceptions=|problem)' | sed 's/^/        /'
+  if tr -d '\r' < "$log" | grep -q '^GAMEPLAY: PASS$'; then
+    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, teams, turret, death, respawn, self-destruct)$(run_label "$1")"
+  else
+    fail "gameplay$(run_label "$1") - see $log"
   fi
 }
 
@@ -239,12 +282,14 @@ online_pair() {
 if [ "$built" -eq 1 ]; then
   for k in $(seq 1 "$STRESS"); do smoke_headless "$k"; done
   for k in $(seq 1 "$STRESS"); do smoke_offline_play "$k"; done
+  for k in $(seq 1 "$STRESS"); do smoke_gameplay "$k"; done
   if [ "$ONLINE" -eq 1 ]; then
     for k in $(seq 1 "$STRESS"); do online_pair "$k"; done
   fi
 else
   fail "smoke (headless) - skipped, no build"
   fail "smoke (offline play) - skipped, no build"
+  fail "gameplay - skipped, no build"
   [ "$ONLINE" -eq 1 ] && fail "online M2 - skipped, no build"
 fi
 

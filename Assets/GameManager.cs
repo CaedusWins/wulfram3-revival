@@ -323,8 +323,20 @@ namespace Com.Wulfram3
 
         }
 
+        // Cargo RPCs carry the tank's PhotonView ID, not the CargoManager itself: PUN can't send a
+        // component over the network. It only seemed to work because offline mode doesn't serialize
+        // RPC arguments (Tools/check-rpc.sh found it, 2026-10-16).
+        private static CargoManager FindCargoManager(int cargoManagerViewId) {
+            PhotonView view = PhotonView.Find(cargoManagerViewId);
+            return view == null ? null : view.GetComponent<CargoManager>();
+        }
+
         [PunRPC]
-        public void RequestPickUpCargo(CargoManager cargoManager) {
+        public void RequestPickUpCargo(int cargoManagerViewId) {
+            CargoManager cargoManager = FindCargoManager(cargoManagerViewId);
+            if (cargoManager == null) {
+                return;
+            }
             if (PhotonNetwork.isMasterClient) {
                 if (cargoManager.pickedUpCargo != "") {
                     return;
@@ -367,11 +379,15 @@ namespace Com.Wulfram3
         }
 
         public void PickUpCargo(CargoManager cargoManager) {
-            photonView.RPC("RequestPickUpCargo", PhotonTargets.MasterClient, cargoManager);
+            photonView.RPC("RequestPickUpCargo", PhotonTargets.MasterClient, cargoManager.photonView.viewID);
         }
 
         [PunRPC]
-        public void RequestDropCargo(CargoManager cargoManager) {
+        public void RequestDropCargo(int cargoManagerViewId) {
+            CargoManager cargoManager = FindCargoManager(cargoManagerViewId);
+            if (cargoManager == null) {
+                return;
+            }
             if (PhotonNetwork.isMasterClient) {
                 string pickedUpCargo = cargoManager.pickedUpCargo;
                 if (pickedUpCargo == "") {
@@ -384,7 +400,7 @@ namespace Com.Wulfram3
         }
 
         public void DropCargo(CargoManager cargoManager) {
-            photonView.RPC("RequestDropCargo", PhotonTargets.MasterClient, cargoManager);
+            photonView.RPC("RequestDropCargo", PhotonTargets.MasterClient, cargoManager.photonView.viewID);
         }
 
         #endregion
