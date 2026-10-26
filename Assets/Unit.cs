@@ -35,6 +35,17 @@ namespace Com.Wulfram3 {
 
         
 
+        // A unit deployed from cargo is created with its deployer's team as instantiation data
+        // (GroundPlacementController.Release). Only a prefab with no team of its own takes it: the
+        // RepairPad prefab has none, so a deployed pad used to belong to no one.
+        void Awake() {
+            PhotonView view = GetComponent<PhotonView>();
+            if (Unit.NormalizeTeam(team) == "" && view != null && view.instantiationData != null &&
+                view.instantiationData.Length > 0 && view.instantiationData[0] is string) {
+                team = (string)view.instantiationData[0];
+            }
+        }
+
         // Use this for initialization
         void Start() {
             switch (team.ToLower())

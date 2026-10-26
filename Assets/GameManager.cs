@@ -125,7 +125,10 @@ namespace Com.Wulfram3
 
                 Debug.Log("Number of Red players: " + redPlayers);
                 Debug.Log("Number of Blue players: " + bluePlayers);
-                if (bluePlayers > redPlayers) {
+                // A player who already has a team (the arena was reset after a match,
+                // MatchManager.ResetArena) keeps it; the counts include that player.
+                PunTeams.Team myTeam = PhotonNetwork.player.GetTeam();
+                if (myTeam == PunTeams.Team.red || (myTeam != PunTeams.Team.blue && bluePlayers > redPlayers)) {
                     Debug.Log("Spawn red tank");
                     Transform selectedSpawnPoint = spawnPointsRed[0];
                     GameObject player = PhotonNetwork.Instantiate("RedTank", selectedSpawnPoint.position, selectedSpawnPoint.rotation, 0);
@@ -145,6 +148,13 @@ namespace Com.Wulfram3
             normalCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
             overheadCamera = GameObject.FindGameObjectWithTag("OverheadCamera").GetComponent<Camera>();
             overheadCamera.enabled = false; //set disabled so that it does't render in the background
+
+            // The win condition (design/gdd/win-condition.md). Added here, not in the binary scene;
+            // its RPCs go through this object's PhotonView.
+            if (GetComponent<MatchManager>() == null) {
+                gameObject.AddComponent<MatchManager>();
+                photonView.RefreshRpcMonoBehaviourCache();
+            }
         }
 
         [PunRPC]
@@ -301,26 +311,50 @@ namespace Com.Wulfram3
             return masterClient + username;
         }
 
+        // Set by Respawn when the dead local player's team had no repair pad: Update watches for one
+        // (a teammate deploying it) and builds the tank there.
+        private bool waitingForPad;
+        private float nextPadCheck;
+
+        public bool WaitingForPad
+        {
+            get { return waitingForPad; }
+        }
+
+        // Called every destroyDelayWhenDead while the local player is dead. Only your own team's
+        // repair pads build you a new tank (the manual: "as long as there is a RepairPad to build it
+        // for you"); you pick one on the overhead map. With none left you wait there until a
+        // teammate deploys one. This used to respawn you at the arena centre, which made a team
+        // impossible to eliminate (design/gdd/win-condition.md).
         public void Respawn(PlayerMovementManager player)
         {
+            overheadCamera.enabled = true;
+            normalCamera.enabled = false;
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            waitingForPad = RepairPad.FindNearestOwn(player) == null;
+        }
 
-
-            Vector3 spawnPos = new Vector3(0f, 5f, 0f);
-            Quaternion spawnRotation = Quaternion.identity;
-
-            if (FindObjectOfType<RepairPad>() != null)
+        public void Update()
+        {
+            if (!waitingForPad || Time.time < nextPadCheck)
             {
-                // TODO: Player will have to hope that all repair pads don't die by the time they click.
-                overheadCamera.enabled = true;
-                normalCamera.enabled = false;
-                Cursor.visible = true;
-                Cursor.lockState = CursorLockMode.None;
+                return;
             }
-            else
+            nextPadCheck = Time.time + 0.25f;
+            GameObject me = PlayerMovementManager.LocalPlayerInstance;
+            PlayerMovementManager player = me == null ? null : me.GetComponent<PlayerMovementManager>();
+            if (player == null || !player.isDead)
             {
-                RepairPad.Spawn(this, player, Vector3.zero);
+                waitingForPad = false;
+                return;
             }
-
+            RepairPad pad = RepairPad.FindNearestOwn(player);
+            if (pad != null)
+            {
+                waitingForPad = false;
+                RepairPad.Spawn(this, player, pad.transform.position);
+            }
         }
 
         // Cargo RPCs carry the tank's PhotonView ID, not the CargoManager itself: PUN can't send a
