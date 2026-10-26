@@ -84,13 +84,49 @@ if [ ! -f "$UNITY" ]; then
   exit 2
 fi
 
+win() { cygpath -w "$1"; }
+
+# Nothing a run starts may outlive it (owner rule, 2026-10-26: a stopped gate kept launching game
+# windows that took the mouse). gate_stop ends every process this run started - players from <out>,
+# Unity batch/Play-check runs on <project> - with their children. It runs when the run ends, however it
+# ends, and a watchdog runs it if the process that started the run goes away. To stop a gate by hand:
+# Tools/stop-gate.sh (stopping only the shell that started it is not enough).
+gate_stop() {
+  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$(win "$HERE/stop-gate-processes.ps1")" \
+    -OutDir "$(win "$OUT")" -ProjectDir "$(win "$PROJECT")" 2>/dev/null | tr -d '\r'
+}
+
+# watch_and_stop <pid> <who> - in the background: if <pid> ends while this script is still running,
+# stop everything this run started, note it in the report, and stop this script. Prints the
+# watchdog's pid.
+watch_and_stop() {
+  local watched="$1" who="$2" me=$$
+  ( while kill -0 "$watched" 2>/dev/null && kill -0 "$me" 2>/dev/null; do sleep 2; done
+    if kill -0 "$me" 2>/dev/null; then
+      gate_stop > /dev/null
+      echo "STOPPED  $who ended while the gate ran; everything this run started was stopped" >> "$OUT/SUMMARY.txt"
+      kill -TERM "$me" 2>/dev/null
+    fi ) > /dev/null 2>&1 &
+  echo $!
+}
+
 # The run's report: everything this script prints is also saved to <out>/SUMMARY.txt, next to the
 # step logs, so the verdict outlives the terminal. (The script runs itself once more, piped to tee.)
 if [ -z "${WULFRAM_VERIFY_REPORTING:-}" ]; then
-  WULFRAM_VERIFY_REPORTING=1 WULFRAM_VERIFY_FLAGS="${ORIG_ARGS[*]-}" \
+  watchdog=$(watch_and_stop "$PPID" "the shell that started it")
+  WULFRAM_VERIFY_REPORTING=1 WULFRAM_VERIFY_FLAGS="${ORIG_ARGS[*]-}" WULFRAM_VERIFY_PARENT=$$ \
     bash "$0" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"} --out "$OUT" 2>&1 | tee "$OUT/SUMMARY.txt"
-  exit "${PIPESTATUS[0]}"
+  status=${PIPESTATUS[0]}
+  kill "$watchdog" 2>/dev/null
+  gate_stop > /dev/null
+  exit "$status"
 fi
+
+# The run itself: stop everything it started when it exits, and stop it if the parent goes away.
+watchdog=""
+[ -n "${WULFRAM_VERIFY_PARENT:-}" ] && watchdog=$(watch_and_stop "$WULFRAM_VERIFY_PARENT" "the gate's parent process")
+trap 'gate_stop > /dev/null; [ -n "$watchdog" ] && kill "$watchdog" 2>/dev/null' EXIT
+trap 'echo; echo "INTERRUPTED - stopping everything this run started"; exit 130' INT TERM HUP
 
 echo "verify-local report"
 echo "date:    $(date '+%Y-%m-%d %H:%M:%S %z')"
@@ -103,7 +139,6 @@ echo "logs:    $OUT"
 failures=0
 pass() { echo "PASS  $1"; }
 fail() { echo "FAIL  $1"; failures=$((failures + 1)); }
-win() { cygpath -w "$1"; }
 
 # run_unity <log> [extra args...] - one batch-mode editor run on the project
 run_unity() {
@@ -307,6 +342,7 @@ stop_player() {
 
 # 7. smoke (windowed)
 if [ "$WINDOWED" -eq 1 ]; then
+  echo "NOTE  step 7 opens a 1280x720 game window for about 30 s (opt-in: --windowed/--screenshots); the test run releases the mouse, so it is never locked to the window"
   if [ "$built" -eq 1 ]; then
     shots=()
     if [ "$SCREENSHOTS" -eq 1 ]; then
@@ -362,6 +398,7 @@ license_reload() {
 }
 
 if [ "$EDITOR" -eq 1 ]; then
+  echo "NOTE  step 8 opens the Unity editor twice, 1-2 min each (opt-in: --editor); the test run releases the mouse, so it is never locked to the game view"
   for start in "Assets/Scenes/Launcher 1.unity" "Assets/Scenes/Playground.unity"; do
     name=$(basename "$start" .unity | tr ' ' '-')
     note=""
