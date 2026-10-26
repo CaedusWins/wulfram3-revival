@@ -11,11 +11,10 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 - **Build System**: Unity batch mode (`-buildWindows64Player`); local gate `Tools/verify-local.sh`; CI `.github/workflows/checks.yml`
 - **Asset Pipeline**: Unity 2017.3 import; scenes and prefabs are **binary** (diff them with `Assets/Editor/WulframSceneDump.cs`)
 
-> **Pinned-engine warning (2026-10-26):** `docs/engine-reference/unity/` as shipped describes **Unity 6.3 LTS**.
-> This project is **Unity 2017.3.0f3 / C# 4**: Unity 6 APIs, DOTS, UI Toolkit, Addressables and newer C#
-> do not compile here. Run `/setup-engine` to re-pin that reference to the installed 2017.3 editor; until
-> then, treat its API advice as not applicable. The project facts in the second half of this file win
-> over any template default.
+> **Pinned engine (re-pinned 2026-10-26):** `docs/engine-reference/unity/VERSION.md` pins **Unity 2017.3.0f3 / C# 4**
+> and lists what does not exist here (Unity 6 APIs, DOTS, UI Toolkit, Addressables, URP, newer C#). The other
+> files in that folder describe the template's Unity 6.3 LTS and do NOT apply. The project facts in the second
+> half of this file win over any template default.
 
 > **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
 > dedicated sub-specialists. Use the set matching your engine.
@@ -32,7 +31,7 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
      session. It defaults to Godot (the template's example engine); skills that
      need the pinned version read docs/engine-reference/<engine>/VERSION.md on
      demand regardless of this import. -->
-@docs/engine-reference/godot/VERSION.md
+@docs/engine-reference/unity/VERSION.md
 
 
 ## Technical Preferences
@@ -105,7 +104,7 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - **Claude Code Game Studios** (adopted 2026-10-26): `.claude/` (49 agents, skills, hooks, rules, docs), `project.yaml` (its config; `/start` and `/setup-engine` write it), `design/` `production/` `studio-tests/`, `docs/WORKFLOW-GUIDE.md`, `docs/engine-reference/`. License and provenance: `.claude/LICENSE-ClaudeCodeGameStudios`. Upgrades: `UPGRADING.md`.
 
 **Immediate next action (as of 2026-10-26):** L1's automated work is done: 15/20 rows proven by the gameplay test (gate step 6e, every gate, 12 phase groups). Merged since 2026-10-16: PRs #15-#26 - RPC check (0 findings), gameplay test, death/respawn, pulse, cargo (4 online fixes), turrets (team fix), M2 test race fix, gate compile-crash label, **gate desktop safety (#25: tests release the mouse; nothing a run starts outlives it; `Tools/stop-gate.sh`)**, **Claude Code Game Studios v1.2.0, full adoption (#26)**. `dev` = `e1c3ec0` (promotion #24, VERIFIED 21/21); revival is ahead only by #25/#26 (tooling). `master` untouched. Next:
-1. **Owner, in a Claude Code session opened in `wulfram3/`:** `/setup-engine unity 2017.3.0f3` (approve the 2017.3 pin, decline "Scaffold the Engine Project"), then `/start` (existing work) → `/project-stage-detect` → `/adopt`.
+1. **Studio suite: configured 2026-10-26** (`feature/studio-setup`): the `/setup-engine` + `/start` steps (engine pinned to Unity 2017.3 / C# 4, rigor standard, automation guided) and a focused `/adopt` pass. Follow `docs/adoption-plan-2026-10-26.md` next: game concept, systems index, `project.stage`, then the first sprint (the rest of L1). Open Claude Code **in `wulfram3/`** to use its skills.
 2. **Owner playtest** of `builds\wulfram3-dev-e1c3ec0\` (L1 manual rows 3, 4, 13-rotate, 17, 18) and three design calls: self-destruct friendly fire, flak one-shot (uncapped splash), what `BlueCargo` deploys.
 3. **Owner:** Windows Memory Diagnostic (dev-PC instability, see QA log).
 4. Then: cargo-box name fix (`'Repair Pad'`), promote revival → `dev`, and - after L1 sign-off - online work (join fix, real two-person match, chat, RPC trust).
