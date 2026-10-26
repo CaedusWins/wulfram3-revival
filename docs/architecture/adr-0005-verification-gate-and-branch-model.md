@@ -39,7 +39,7 @@ features are built.
 | **Depends On** | ADR-0001 |
 | **Enables** | All implementation stories (their Definition of Done) |
 | **Blocks** | None (already in force) |
-| **Ordering Note** | Local first: online feature work (join fix, real match, chat, RPC trust) waits for L1; online gate steps stay as a regression canary |
+| **Ordering Note** | Local first: online feature work (join fix, real match, chat, RPC trust) waits for L1; online gate steps stay as a regression canary. **Allowed now (2026-10-26):** online tests that prove existing behaviour, such as the online match-end test that ADR-0004 needs (architecture review C2) |
 
 ## Context
 
@@ -63,7 +63,7 @@ would be indistinguishable from progress.
 - **Merge**: after every check run on the head SHA has completed, `gh pr merge --merge --match-head-commit <sha>`; never `--admin`.
 - **Desktop**: ask before window-opening runs; stop gates only with `Tools/stop-gate.sh`.
 - **Flakiness rule**: a failure counts against the code only if it reproduces.
-- **Local first**: L1 local playability before more online feature work.
+- **Local first**: L1 local playability before more online feature work. Online *tests* of existing behaviour are not feature work and may be added at any time (revised 2026-10-26, architecture review C2).
 
 ### Architecture Diagram
 ```text
