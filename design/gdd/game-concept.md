@@ -128,6 +128,29 @@ shared bases, repair pads).
 
 ---
 
+## Visual Identity Anchor
+
+**Direction: Readable Battlefield** (owner's choice, 2026-10-26)
+
+**Visual rule:** team and function read at 100 m.
+
+**Supporting principles:**
+1. **Classic silhouettes, modern light.** Keep the chunky 2018 vehicle and structure shapes; improve
+   lighting and materials, not shapes. *Design test:* a returning player names every unit type
+   from its silhouette alone.
+2. **Team colour is the loudest thing on every unit.** Red and blue markings dominate each tank,
+   turret and pad; nothing else on a unit competes with them. *Design test:* in a grayscale
+   screenshot with only team colours kept, every unit's side is clear.
+3. **Deployables are recognisable by shape.** Turrets, repair pads and cargo boxes each have one
+   unmistakable outline, because strategy depends on reading the base layout. *Design test:* from
+   a tank at 100 m, a player can tell a flak turret from a gun turret from a repair pad.
+
+**Colour philosophy:** a muted planet (terrain, sky, neutral props) so that the two team colours,
+red and blue, and the critical states (low health, low fuel, incoming fire) are the only saturated
+colours on screen.
+
+---
+
 ## Inspiration and References
 - Wulfram (Bolt Action Software) and Wulfram 2: the source design (manual in `README.md`)
 - Tribes, BattleZone: team vehicle combat with building

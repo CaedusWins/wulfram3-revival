@@ -63,3 +63,7 @@ commands:
   test: "bash Tools/verify-local.sh"   # the project's gate - headless steps only; add --online/--windowed/--editor deliberately
   run: "Builds/Win64/Wulfram3.exe -screen-width 1280 -screen-height 720 -screen-fullscreen 0 -offlinePlay"   # opens a window: ask the owner first (CLAUDE.md, desktop etiquette)
   smoke: '"C:/Program Files/Unity/Editor/Unity.exe" -batchmode -quit -nographics -projectPath . -logFile Temp/smoke-compile.log'   # then grep Temp/smoke-compile.log for "compilationhadfailure: True"
+
+project:
+  stage: "Systems Design"   # /gate-check Concept -> Systems Design: PASS 2026-10-26 (concept reviewed APPROVED;
+                            # the prototype item is met by the 2018 game + the L1 gameplay test)
