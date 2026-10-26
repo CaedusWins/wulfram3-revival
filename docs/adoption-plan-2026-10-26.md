@@ -1,7 +1,7 @@
 # Adoption Plan
 
 > **Generated**: 2026-10-26 (a focused `/adopt` pass, run by Claude on the owner's go-ahead)
-> **Project phase**: Production (inferred: 700+ source files under `Assets/`; `project.stage` not set yet)
+> **Project phase**: Systems Design (project.stage, set by the Concept gate 2026-10-26; the code is further along than the design docs)
 > **Engine**: Unity 2017.3.0f3 / C# 4 (configured 2026-10-26; coherence check: 3 match, 0 differ)
 > **Template version**: v1.2.0
 
@@ -33,19 +33,19 @@ None. The one blocker, an unconfigured engine whose reference pointed at Unity 6
 **Source material**: `README.md` (the 2018 player manual: two factions, tanks and scouts, cargo, repair pads, PowerCells, SupplyShips) and `CLAUDE.md` "Decisions Already Made" (lean slice first; full economy deferred to M4).
 **Fix**: `/design-system retrofit design/gdd/game-concept.md`, built from those sources, with the owner's decisions where the manual and the 2018 code disagree.
 **Time**: 1 session
-- [ ] game-concept.md written and approved
+- [x] game-concept.md written and approved (2026-10-26; Visual Identity Anchor: Readable Battlefield; review APPROVED)
 
 ### 2b. Systems index (`design/gdd/systems-index.md`)
 **Problem**: There's no map of the systems that exist; GDD and story skills key off it.
 **Source material**: L1 rows 1–20. Implemented systems: movement/hover, AutoCannon, pulse cannon, fuel, health/regen, targeting, death/respawn and repair pads, self-destruct, cargo/deploy, turrets, teams, HUD, offline play, Photon networking.
 **Fix**: `/map-systems`
 **Time**: 1 session
-- [ ] systems-index.md written
+- [x] systems-index.md written and approved (2026-10-26; 26 systems)
 
 ### 2c. Authoritative project stage
-**Fix**: `/gate-check production` (the gate into the phase the project is in) to write `project.stage`.
+**Fix**: `/gate-check`, one gate at a time. Correction: the stages track design artifacts, not code, so the honest stage is reached gate by gate (Production would need GDDs, ADRs and stories first).
 **Time**: 5 min
-- [ ] `project.stage` written
+- [x] `project.stage` = Systems Design (Concept gate PASS 2026-10-26); next gate, Technical Setup, needs the system GDDs (Step 4a)
 
 ---
 
