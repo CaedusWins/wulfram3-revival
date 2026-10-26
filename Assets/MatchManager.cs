@@ -154,6 +154,12 @@ namespace Com.Wulfram3
             state = State.Resetting;
             Debug.Log("MATCH: resetting the arena");
             DestroyOwnMatchObjects();
+            // LoadLevel pauses sending until the load is done; send the destroys first, so other
+            // clients drop this client's old tank (it survives their reload) as soon as possible.
+            if (!PhotonNetwork.offlineMode)
+            {
+                PhotonNetwork.SendOutgoingCommands();
+            }
             PhotonNetwork.LoadLevel(SceneManager.GetActiveScene().name);
         }
 
