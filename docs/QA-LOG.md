@@ -75,6 +75,12 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 
 - **Unity's license refresh can force a script reload in the editor.** Seen twice: 2026-10-10 (an early editor-Play investigation, which recovered and passed) and 2026-10-16 (`rg-gate`). It happens about once a day (the log names the next check: "Next license update check is after …"). A reload during Play mode fails step 8. Before blaming the code, check the step-8 log for `License updated successfully` just before `Reloading assemblies due to reload request`.
 - **A failed first compile isn't always Unity's stale script list.** Since `feature/gate-compile-crash-label`, the gate reports the cause: a compiler crash (non-zero `exitcode` on `compilationhadfailure: True`, no `error CS`), compile errors, or Unity not finishing. The classifier was checked on the real `mono.exe` crash log, two historical compile-error logs and a truncated log.
+- **A gate must never take the owner's mouse or outlive itself (2026-10-26).** Stopping only the background task that started the suite-branch gate left `verify-local.sh` running, and it kept launching game windows that locked the owner's mouse to the screen centre. Fixed on `feature/gate-mouse-safety`:
+  - test runs release the cursor (`cursorReleased=True(1x)` vs `False(0x)` with `-smokeLockCursor`);
+  - the gate stops everything it started on any exit, and watchdogs stop it if its starter goes away (killing only the launching shell left nothing after about 6 s);
+  - `Tools/stop-gate.sh` stops all test runs while sparing playtest builds and editors the gate didn't start;
+  - window-opening steps need the owner's OK first.
+  The cleanup tests used a stand-in `Unity.exe` that just sleeps.
 - **Keep gate clones out of the VS Code workspace** (`C:\Development\wulfram-gates\`): with `git.autofetch` on, VS Code fetches any new repo it finds there, in parallel with the clone.
 - **Wait for every check run on the head SHA before merging** (push *and* pull_request runs). Branch protection refuses the merge otherwise, and that's correct.
 - **"Exactly N" assertions are flaky in a live game** (regeneration, timing). Assert bounds and the lowest/highest value seen.

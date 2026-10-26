@@ -55,6 +55,17 @@ namespace Wulfram.SmokeTest
             Application.logMessageReceived += OnLog;
         }
 
+        // Never hold the tester's mouse (see OfflineSmokeTest.lockCursor): the game locks the cursor
+        // to its window; a test run releases it every frame. Cursor.visible, which the game's checks
+        // use, is left alone. The gate runs this test headless, where there is no mouse to hold.
+        private void Update()
+        {
+            if (Cursor.lockState != CursorLockMode.None)
+            {
+                Cursor.lockState = CursorLockMode.None;
+            }
+        }
+
         private void OnLog(string message, string stackTrace, LogType type)
         {
             if (type == LogType.Exception)
