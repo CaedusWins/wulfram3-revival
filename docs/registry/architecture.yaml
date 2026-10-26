@@ -40,7 +40,7 @@
 #   unsupported layout, with its number.
 
 version: 1
-last_updated: ""
+last_updated: "2026-10-26"
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -53,7 +53,28 @@ last_updated: ""
 # interface: how other systems access this state (read-only property, method call,
 #   signal, shared resource, etc.) — this is the contract other ADRs depend on.
 
-state_ownership: []
+state_ownership:
+  - state: unit_health
+    status: active
+    owner_system: master-client (HitPointsManager)
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
+    interface: "HitPointsManager.health (read-only for others); change it only via TellServerTakeDamage / TellServerHealth"
+    write_access: master-client-only
+    referenced_by:
+      - docs/architecture/adr-0003-master-authority-and-team-identity.md
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
+  - state: match_state
+    status: active
+    owner_system: match-manager
+    adr: docs/architecture/adr-0004-match-flow-matchmanager.md
+    interface: "MatchManager.Instance.state / result / DamageBlocked (read-only); result changes only via the master's MatchEnded RPC"
+    write_access: master-client-only
+    referenced_by:
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
 
 # Example:
 #
@@ -81,7 +102,45 @@ state_ownership: []
 #
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
-interfaces: []
+interfaces:
+  - contract: damage_and_heal_to_master
+    status: active
+    pattern: rpc
+    producer: any-client
+    consumers:
+      - master-client
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
+    signal_signature: "TellServerTakeDamage(int) -> TakeDamage RPC to master -> UpdateHealth RPC to All; TellServerHealth(int) -> SetHealthFromClient"
+    referenced_by:
+      - docs/architecture/adr-0003-master-authority-and-team-identity.md
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
+  - contract: match_result_and_reset
+    status: active
+    pattern: rpc
+    producer: master-client
+    consumers:
+      - all-clients
+    adr: docs/architecture/adr-0004-match-flow-matchmanager.md
+    signal_signature: "MatchEnded(int result) and ResetArena() on the GameManager PhotonView, PhotonTargets.All"
+    referenced_by:
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
+  - contract: team_comparison
+    status: active
+    pattern: direct_call
+    producer: unit
+    consumers:
+      - all-systems
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
+    signal_signature: "Unit.SameTeam(string a, string b) / Unit.NormalizeTeam(string)"
+    referenced_by:
+      - docs/architecture/adr-0003-master-authority-and-team-identity.md
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
 
 # Example:
 #
@@ -141,7 +200,30 @@ performance_budgets: []
 # Register an API decision when the choice is non-obvious and other ADRs might
 # make a different choice for the same purpose without knowing this was decided.
 
-api_decisions: []
+api_decisions:
+  - purpose: engine_and_language
+    status: active
+    api: "Unity 2017.3.0f3, C# 4 (Mono)"
+    not: "post-2017.3 Unity APIs, C# 6+ syntax"
+    adr: docs/architecture/adr-0001-engine-pin-unity-2017-3.md
+    reason: "Binary scenes, PUN Classic and the proven gate all depend on this engine; upgrades are a deliberate step"
+    referenced_by:
+      - docs/architecture/adr-0001-engine-pin-unity-2017-3.md
+      - docs/architecture/adr-0002-pun-classic-photon-cloud.md
+    added: 2026-10-26
+    revised: ""
+  - purpose: networking
+    status: active
+    api: "PUN Classic 1.88 (PhotonNetwork.Instantiate/Destroy, [PunRPC]) on Photon Cloud; PhotonNetwork.offlineMode for offline play"
+    not: "PUN2, UNet, Netcode for GameObjects"
+    adr: docs/architecture/adr-0002-pun-classic-photon-cloud.md
+    reason: "Works with today's Photon Cloud (M2); PUN2 needs Unity 2017.4.7+"
+    referenced_by:
+      - docs/architecture/adr-0002-pun-classic-photon-cloud.md
+      - docs/architecture/adr-0003-master-authority-and-team-identity.md
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
 
 # Example:
 #
@@ -167,7 +249,37 @@ api_decisions: []
 # Register a pattern when an ADR explicitly bans it AND other ADRs might
 # unknowingly use it (i.e., it's a tempting but wrong approach for this project).
 
-forbidden_patterns: []
+forbidden_patterns:
+  - pattern: raw_team_string_comparison
+    status: active
+    description: "Never compare raw team strings with ==, Equals or ToLower(); use Unit.SameTeam or compare Unit.NormalizeTeam output."
+    why: "The 2018 data spells teams 'blue', 'Blue', 'BlueTeam'; exact comparisons made turrets ignore their enemies."
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
+    added: 2026-10-26
+  - pattern: direct_health_write
+    status: active
+    description: "Never assign HitPointsManager.health or call TakeDamage locally; go through TellServerTakeDamage / TellServerHealth."
+    why: "Only the master may change health, or clients disagree about a unit's state."
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
+    added: 2026-10-26
+  - pattern: modern_unity_or_csharp
+    status: active
+    description: "No C# 6+ syntax (?., string interpolation, nameof, async/await) and no post-2017.3 Unity APIs (URP/HDRP, UI Toolkit, Input System, Addressables, DOTS)."
+    why: "They do not compile on the pinned engine."
+    adr: docs/architecture/adr-0001-engine-pin-unity-2017-3.md
+    added: 2026-10-26
+  - pattern: photon_app_id_in_git
+    status: active
+    description: "Never commit, fully log or put the Photon App ID in a tracked file; use WULFRAM_PHOTON_APPID or Assets/Resources/PhotonAppId.local.txt."
+    why: "It is a credential; the repository may become public."
+    adr: docs/architecture/adr-0002-pun-classic-photon-cloud.md
+    added: 2026-10-26
+  - pattern: local_destroy_of_networked_object
+    status: active
+    description: "In a room, never create or remove a networked object with plain Instantiate/Destroy; use PhotonNetwork.Instantiate/Destroy (local cleanup after leaving the room is the one exception)."
+    why: "A plain Destroy leaves the object standing on every other client (the deploy preview ghost)."
+    adr: docs/architecture/adr-0002-pun-classic-photon-cloud.md
+    added: 2026-10-26
 
 # Example:
 #

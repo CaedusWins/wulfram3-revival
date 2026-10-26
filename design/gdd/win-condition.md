@@ -48,7 +48,7 @@ new pad, if it has a living tank to do it.
    one). **The arena-centre fallback (`GameManager.Respawn` → `RepairPad.Spawn(…, Vector3.zero)`) is
    removed.**
 4. **Elimination.** A team is **eliminated** when it has **zero repair pads and zero living tanks**.
-   A tank counts as living when `PlayerMovementManager.isDead` is false. Scouts count as tanks once
+   A tank counts as living while its health is above 0 (what `PlayerMovementManager.isDead` is computed from). Scouts count as tanks once
    they exist (they don't spawn yet).
 5. **Victory.** When exactly one team is eliminated, the other team wins. If both are eliminated in
    the same check (e.g. by a self-destruct), the match is a **draw**.
@@ -68,7 +68,7 @@ new pad, if it has a living tank to do it.
 | State | Meaning | Transitions |
 |---|---|---|
 | **Waiting** | Fewer than one player per team | → Playing when both teams have ≥ 1 player |
-| **Playing** | The rule is checked (on the master, on every change in pads or deaths, plus once a second) | → Ended when one or both teams are eliminated; → Waiting if a team's last player leaves |
+| **Playing** | The rule is checked (every `checkIntervalSeconds` on every client for the HUD; only the master acts on it) | → Ended when one or both teams are eliminated; → Waiting if a team's last player leaves |
 | **Ended** | Banner shown to everyone (Victory / Defeat / Draw); input still allowed but damage ignored | → Resetting after the announcement time |
 | **Resetting** | The master restores the arena and respawns everyone | → Playing (or Waiting if a team is now empty) |
 
@@ -86,8 +86,8 @@ new pad, if it has a living tank to do it.
 Elimination, evaluated on the master for each team `T`:
 
 ```text
-padsAlive(T)  = count of RepairPad units with SameTeam(team, T) and health > 0
-tanksAlive(T) = count of player tanks on T with isDead == false
+padsAlive(T)  = count of RepairPad units with SameTeam(team, T) still in the arena (the master removes a pad at 0 health)
+tanksAlive(T) = count of player tanks on T with health > 0
 eliminated(T) = armed AND padsAlive(T) == 0 AND tanksAlive(T) == 0
 ```
 
@@ -118,7 +118,7 @@ both are eliminated.
 | Knob | Default | Range | Notes |
 |---|---|---|---|
 | `announceSeconds` | 15 | 5–60 | Time from the result to the reset |
-| `checkIntervalSeconds` | 1 | 0.2–5 | Fallback periodic check (event-driven checks too) |
+| `checkIntervalSeconds` | 0.5 | 0.2–5 | How often the rule is checked (keeps the 2 s result criterion) |
 | `minPlayersPerTeam` | 1 | 1–10 | Arms the rule |
 | `timeLimitMinutes` | none | — | Not in MVP (owner, 2026-10-26) |
 
