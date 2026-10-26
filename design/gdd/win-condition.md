@@ -1,6 +1,6 @@
 # Win Condition
 
-> **Status**: In Review
+> **Status**: Approved (owner, 2026-10-26)
 > **Author**: owner + Claude (decisions by the owner, 2026-10-26)
 > **Last Updated**: 2026-10-26
 > **Last Verified**: 2026-10-26
