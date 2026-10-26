@@ -41,7 +41,7 @@ This is the **human-readable narrative** of the revival effort: what's happened,
 
 ## What's next
 
-1. **Owner action:** revoke the leaked Discord webhook in Discord (Server Settings → Integrations → Webhooks). Nothing in the repo can fix this; it's been public since 2017.
+1. ~~Revoke the Discord webhook~~ - not ours (the original 2017 team committed it); nothing to do. It is out of the current code and CI blocks new ones.
 2. ~~Make the testing process sturdier~~ and ~~move the verified work into `dev`~~: both done 2026-10-16.
 3. **L1 — Local Playability:** work through the checklist, one fix or test per branch, then a hands-on playtest by the owner.
 4. After L1: back online. Merge the same-instant-Play fix, play a real two-person match, bring chat back (needs a Photon **Chat** app), and decide how far to trust what players' games send.
