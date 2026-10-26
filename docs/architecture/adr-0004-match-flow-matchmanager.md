@@ -64,7 +64,7 @@ a result banner on every client, no damage until the reset, and a fresh match in
 - `GameManager.Start` adds `MatchManager` to its own GameObject, so its RPCs travel on the GameManager's PhotonView (it also refreshes the RPC component cache; see Risks). No scene edit.
 - States: `Waiting` → `Playing` (both teams have ≥ `minPlayersPerTeam` tanks) → `Ended` → `Resetting`. Every client computes Waiting/Playing and the counts locally for its HUD; only the master sends `MatchEnded(int result)` (to All).
 - Counts come from the scene each check (every 0.5 s): own-team `RepairPad`s that exist (the master destroys a pad at 0 health), and tanks whose `HitPointsManager.health > 0`. No result is cached only on the master, so a new master re-evaluates.
-- `announceSeconds` after `Ended`, the master sends `ResetArena` (to All). Each client network-destroys every root object it owns that is not a scene view, then calls `PhotonNetwork.LoadLevel` on the current scene. `GameManager.Start` spawns a new tank, keeping the player's existing team.
+- `announceSeconds` after `Ended`, the master sends `ResetArena` (to All). The master first network-destroys its own match objects (units deployed this match, which are room objects marked `Unit.deployed`, and anything else it created), then sends the RPC, so every client processes those destroys before it reloads (a destroy that arrives after a client's reload finds nothing, and PUN logs "Ev Destroy Failed" as an error). Each client then network-destroys every root object it owns that is not a loaded scene object, and calls `PhotonNetwork.LoadLevel` on the current scene (amended 2026-10-26, architecture review C1). `GameManager.Start` spawns a new tank, keeping the player's existing team.
 - `MatchManager.DamageBlocked` makes the master ignore `TakeDamage` while `Ended`/`Resetting`.
 - `MatchManager.ArmWithoutOpponents` (static) arms the rule with one team, for the offline test only.
 
@@ -88,7 +88,7 @@ GameManager GO (scene, PhotonView) ── AddComponent ──> MatchManager
 ### Implementation Guidelines
 - Only the master must send `MatchEnded` and `ResetArena`.
 - Match state must be derived from the scene, never kept only on the master.
-- Anything that should survive a reset must be scene data or re-created by `GameManager.Start`; anything created during a match must be a networked object owned by a client.
+- Anything that should survive a reset must be scene data or re-created by `GameManager.Start`; anything created during a match must be a networked object: owned by a client, or a room object the master created with `Unit.deployed` set (ADR-0003).
 - Code must never set `ArmWithoutOpponents` outside tests.
 - New match-level rules must extend `MatchManager`, not add a second state machine.
 
