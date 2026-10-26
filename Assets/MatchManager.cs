@@ -71,6 +71,10 @@ namespace Com.Wulfram3
                 // The master resets; a client that becomes master meanwhile does it on its own clock.
                 if (PhotonNetwork.isMasterClient && Time.time >= endedAt + announceSeconds)
                 {
+                    // Destroy first, then the RPC: messages arrive in order, so every client removes
+                    // the master's objects while it still has them. Destroy events that reach a client
+                    // after its reload find nothing, and PUN logs "Ev Destroy Failed" as an error.
+                    DestroyOwnMatchObjects();
                     photonView.RPC("ResetArena", PhotonTargets.All);
                 }
                 return;
@@ -136,10 +140,10 @@ namespace Com.Wulfram3
                 ", blue pads " + bluePads + " tanks alive " + blueTanksAlive + "); new match in " + announceSeconds + " s");
         }
 
-        // Every client removes the network objects it owns (its tank, units it deployed, cargo it
-        // dropped; the master also those of players who left) and reloads the arena, which brings
-        // back the starting pads, turrets and cargo. GameManager.Start then builds a new tank on the
-        // same team.
+        // Every client removes the network objects it owns (its tank; the master also the units
+        // deployed this match, which belong to the room, cargo it dropped, and the objects of players
+        // who left) and reloads the arena, which brings back the starting pads, turrets and cargo.
+        // GameManager.Start then builds a new tank on the same team.
         [PunRPC]
         public void ResetArena()
         {
@@ -149,10 +153,32 @@ namespace Com.Wulfram3
             }
             state = State.Resetting;
             Debug.Log("MATCH: resetting the arena");
+            DestroyOwnMatchObjects();
+            // LoadLevel pauses sending until the load is done; send the destroys first, so other
+            // clients drop this client's old tank (it survives their reload) as soon as possible.
+            if (!PhotonNetwork.offlineMode)
+            {
+                PhotonNetwork.SendOutgoingCommands();
+            }
+            PhotonNetwork.LoadLevel(SceneManager.GetActiveScene().name);
+        }
+
+        // Once per reset (the master runs it before sending ResetArena, then again from the RPC).
+        private bool destroyedOwn;
+
+        private void DestroyOwnMatchObjects()
+        {
+            if (destroyedOwn)
+            {
+                return;
+            }
+            destroyedOwn = true;
             HashSet<GameObject> owned = new HashSet<GameObject>();
             foreach (PhotonView view in FindObjectsOfType<PhotonView>())
             {
-                if (view.isMine && !view.isSceneView &&
+                Unit unit = view.GetComponent<Unit>();
+                bool matchObject = !view.isSceneView || (unit != null && unit.deployed);
+                if (view.isMine && matchObject &&
                     (view.transform.parent == null || view.transform.parent.GetComponentInParent<PhotonView>() == null))
                 {
                     owned.Add(view.gameObject);
@@ -162,7 +188,6 @@ namespace Com.Wulfram3
             {
                 PhotonNetwork.Destroy(go);
             }
-            PhotonNetwork.LoadLevel(SceneManager.GetActiveScene().name);
         }
 
         // The local player's side of a result: "VICTORY", "DEFEAT" or "DRAW".

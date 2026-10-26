@@ -225,6 +225,185 @@ namespace Wulfram.SmokeTest
             }
         }
 
+        // Online match (design/gdd/win-condition.md, ADR-0004; architecture review C1), two clients in
+        // lockstep, one per team. The loser is the non-master's team, so the master decides a result
+        // about a remote player.
+        //   deploy   each client deploys a repair pad for its team through the real deploy path
+        //            (GameManager.DeployUnit); both clients must see both pads, room-owned
+        //   destroy  the non-master asks for lethal damage on its own team's deployed pad: the master
+        //            must remove it (it couldn't when the deployer owned it - C1)
+        //   result   the master destroys the loser team's last pad and tank: within 10 s the winner
+        //            sees VICTORY and the loser DEFEAT
+        //   reset    announceSeconds later both clients have a new tank, alive, on the same team; one
+        //            starting pad per team; no deployed unit left; the rule armed again
+        private bool matchOk = true;
+        private string matchSummary = "";
+
+        private IEnumerator OnlineMatch()
+        {
+            GameObject me = Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance;
+            Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
+            Com.Wulfram3.MatchManager match = Com.Wulfram3.MatchManager.Instance;
+            if (me == null || gameManager == null || match == null)
+            {
+                matchOk = false;
+                matchSummary = "setup: tank=" + (me != null) + " gameManager=" + (gameManager != null) + " matchManager=" + (match != null);
+                yield break;
+            }
+            bool master = PhotonNetwork.isMasterClient;
+            string myTeam = Com.Wulfram3.Unit.NormalizeTeam(me.GetComponent<Com.Wulfram3.Unit>().team);
+            string otherTeam = myTeam == "red" ? "blue" : "red";
+            string loserTeam = master ? otherTeam : myTeam;
+
+            float until = Time.realtimeSinceStartup + 10f;
+            while (match.state != Com.Wulfram3.MatchManager.State.Playing && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            bool armed = match.state == Com.Wulfram3.MatchManager.State.Playing;
+
+            // deploy
+            Vector3 spot = me.transform.position + Vector3.ProjectOnPlane(me.transform.forward, Vector3.up).normalized * 8f;
+            if (Terrain.activeTerrain != null)
+            {
+                spot.y = Terrain.activeTerrain.SampleHeight(spot) + Terrain.activeTerrain.transform.position.y;
+            }
+            gameManager.DeployUnit("RepairPad", spot, Quaternion.identity, myTeam);
+            until = Time.realtimeSinceStartup + 15f;
+            while (DeployedPads("red") + DeployedPads("blue") < 2 && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            bool deployOk = DeployedPads(myTeam) == 1 && DeployedPads(otherTeam) == 1 && AllDeployedRoomOwned();
+            yield return StartCoroutine(Barrier(4, "both deployed pads seen"));
+
+            // destroy (C1)
+            if (!master)
+            {
+                foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+                {
+                    if (pad.GetComponent<Com.Wulfram3.Unit>().deployed && Com.Wulfram3.Unit.SameTeam(pad.Team, myTeam))
+                    {
+                        Com.Wulfram3.HitPointsManager hp = pad.GetComponent<Com.Wulfram3.HitPointsManager>();
+                        hp.TellServerTakeDamage(hp.maxHealth);
+                    }
+                }
+            }
+            until = Time.realtimeSinceStartup + 15f;
+            while (DeployedPads(loserTeam) > 0 && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            bool destroyOk = DeployedPads(loserTeam) == 0;
+            yield return StartCoroutine(Barrier(5, "the non-master's pad is gone"));
+
+            // result
+            if (master)
+            {
+                foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+                {
+                    Com.Wulfram3.HitPointsManager hp = pad.GetComponent<Com.Wulfram3.HitPointsManager>();
+                    if (hp != null && Com.Wulfram3.Unit.SameTeam(pad.Team, loserTeam))
+                    {
+                        hp.TellServerTakeDamage(hp.maxHealth);
+                    }
+                }
+                foreach (Com.Wulfram3.PlayerMovementManager tank in FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>())
+                {
+                    if (Com.Wulfram3.Unit.SameTeam(tank.GetComponent<Com.Wulfram3.Unit>().team, loserTeam))
+                    {
+                        Com.Wulfram3.HitPointsManager hp = tank.GetComponent<Com.Wulfram3.HitPointsManager>();
+                        hp.TellServerTakeDamage(hp.maxHealth);
+                    }
+                }
+            }
+            float resultFrom = Time.realtimeSinceStartup;
+            while (match.state != Com.Wulfram3.MatchManager.State.Ended && Time.realtimeSinceStartup < resultFrom + 20f)
+            {
+                yield return null;
+            }
+            float resultAfter = Time.realtimeSinceStartup - resultFrom;
+            string expected = myTeam == loserTeam ? "DEFEAT" : "VICTORY";
+            string seen = match.ResultFor(myTeam);
+            bool resultOk = match.state == Com.Wulfram3.MatchManager.State.Ended && seen == expected && resultAfter <= 10f;
+            yield return StartCoroutine(Barrier(6, "everyone has seen the result"));
+
+            // reset
+            float announce = match.announceSeconds;
+            until = Time.realtimeSinceStartup + announce + 45f;
+            while (Time.realtimeSinceStartup < until && (Com.Wulfram3.MatchManager.Instance == null || Com.Wulfram3.MatchManager.Instance == match ||
+                Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance == null || Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance == me))
+            {
+                yield return null;
+            }
+            GameObject fresh = Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance;
+            Com.Wulfram3.MatchManager next = Com.Wulfram3.MatchManager.Instance;
+            // Both new tanks in, alive, and the rule armed again (old remote tanks linger until their
+            // owner's destroy arrives).
+            until = Time.realtimeSinceStartup + 30f;
+            while (Time.realtimeSinceStartup < until && !(fresh != null && next != null && LiveTanks() == expectPlayers &&
+                next.state == Com.Wulfram3.MatchManager.State.Playing))
+            {
+                yield return null;
+            }
+            Com.Wulfram3.HitPointsManager freshHp = fresh == null ? null : fresh.GetComponent<Com.Wulfram3.HitPointsManager>();
+            Com.Wulfram3.Unit freshUnit = fresh == null ? null : fresh.GetComponent<Com.Wulfram3.Unit>();
+            bool resetOk = fresh != null && next != null && freshHp != null && freshHp.health == freshHp.maxHealth &&
+                freshUnit != null && Com.Wulfram3.Unit.SameTeam(freshUnit.team, myTeam) && LiveTanks() == expectPlayers &&
+                RepairPad.Count("red") == 1 && RepairPad.Count("blue") == 1 && DeployedPads("red") + DeployedPads("blue") == 0 &&
+                next.state == Com.Wulfram3.MatchManager.State.Playing && next.result == Com.Wulfram3.MatchManager.Result.None;
+            yield return StartCoroutine(Barrier(7, "everyone has checked the reset"));
+
+            matchOk = armed && deployOk && destroyOk && resultOk && resetOk;
+            matchSummary = "armed=" + armed + " deploy=" + deployOk + " destroyNonMasterPad=" + destroyOk + " result=" + seen +
+                " (expected " + expected + ", " + resultAfter.ToString("0.0") + " s) reset=" + resetOk +
+                " [new tank " + (fresh == null ? "NONE" : "team '" + (freshUnit == null ? "?" : freshUnit.team) + "' health " +
+                (freshHp == null ? "?" : freshHp.health + "/" + freshHp.maxHealth)) + ", live tanks " + LiveTanks() +
+                ", pads red " + RepairPad.Count("red") + " blue " + RepairPad.Count("blue") + ", deployed " +
+                (DeployedPads("red") + DeployedPads("blue")) + ", state " + (next == null ? "?" : next.state.ToString()) + "]";
+            Debug.Log("SMOKE: match " + (matchOk ? "PASS" : "FAIL") + " - " + matchSummary);
+        }
+
+        private static int DeployedPads(string team)
+        {
+            int count = 0;
+            foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+            {
+                if (pad.GetComponent<Com.Wulfram3.Unit>().deployed && Com.Wulfram3.Unit.SameTeam(pad.Team, team))
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        private static bool AllDeployedRoomOwned()
+        {
+            foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+            {
+                PhotonView view = pad.GetComponent<PhotonView>();
+                if (pad.GetComponent<Com.Wulfram3.Unit>().deployed && (view == null || !view.isSceneView))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static int LiveTanks()
+        {
+            int count = 0;
+            foreach (Com.Wulfram3.PlayerMovementManager tank in FindObjectsOfType<Com.Wulfram3.PlayerMovementManager>())
+            {
+                Com.Wulfram3.HitPointsManager hp = tank.GetComponent<Com.Wulfram3.HitPointsManager>();
+                if (hp != null && hp.health > 0)
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
         private void OnLog(string message, string stackTrace, LogType type)
         {
             if (type == LogType.Exception)
@@ -425,8 +604,13 @@ namespace Wulfram.SmokeTest
                     Debug.Log("SMOKE: regen perSecond=" + perSecond + " own " + healedFrom + "->" + mine.health +
                         " healedWithAllPresent=" + healedWithAllPresent + " master=" + PhotonNetwork.isMasterClient);
 
-                    // Nobody leaves until everyone has finished checking.
                     yield return StartCoroutine(Barrier(3, "everyone has checked regeneration"));
+                    if (expectPlayers == 2)
+                    {
+                        yield return StartCoroutine(OnlineMatch());
+                        damageOk = damageOk && matchOk;
+                        damage += " match: " + matchSummary;
+                    }
                     damageOk = damageOk && barriersOk;
                     damage += " barriersOk=" + barriersOk;
                 }

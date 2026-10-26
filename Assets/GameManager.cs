@@ -437,6 +437,22 @@ namespace Com.Wulfram3
             photonView.RPC("RequestDropCargo", PhotonTargets.MasterClient, cargoManager.photonView.viewID);
         }
 
+        // Deployed units belong to the room, not to the player who deployed them (ADR-0003): the master
+        // creates them as scene objects, so the master can destroy them at 0 health (PUN refuses to
+        // network-destroy another active player's object) and they stay when their builder leaves (PUN
+        // removes a leaving player's own objects). The team travels as instantiation data (Unit.Awake).
+        public void DeployUnit(string unitName, Vector3 position, Quaternion rotation, string team) {
+            photonView.RPC("RequestDeploy", PhotonTargets.MasterClient, unitName, position, rotation, team == null ? "" : team);
+        }
+
+        [PunRPC]
+        public void RequestDeploy(string unitName, Vector3 position, Quaternion rotation, string team) {
+            if (!PhotonNetwork.isMasterClient) {
+                return;
+            }
+            PhotonNetwork.InstantiateSceneObject(unitName, position, rotation, 0, new object[] { team });
+        }
+
         #endregion
 
         #region Private Methods

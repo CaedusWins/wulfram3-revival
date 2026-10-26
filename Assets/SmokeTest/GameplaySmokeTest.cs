@@ -450,9 +450,13 @@ namespace Wulfram.SmokeTest
                     deployedPad = pad;
                 }
             }
-            Check("deploy-team", deployedPad != null && Com.Wulfram3.Unit.SameTeam(deployedPad.Team, myUnit.team) &&
+            // Room-owned (ADR-0003): created by the master as a scene object, so the master can destroy it
+            // and it stays when its builder leaves.
+            PhotonView deployedView = deployedPad == null ? null : deployedPad.GetComponent<PhotonView>();
+            bool roomOwned = deployedView != null && deployedView.isSceneView && deployedPad.GetComponent<Com.Wulfram3.Unit>().deployed;
+            Check("deploy-team", deployedPad != null && Com.Wulfram3.Unit.SameTeam(deployedPad.Team, myUnit.team) && roomOwned &&
                 ownPadsWithPreview == ownPadsBefore && RepairPad.Count(myUnit.team) == ownPadsBefore + 1 && hold.pickedUpCargo == "",
-                "deployed 'RepairPad': " + (deployedPad == null ? "NONE" : "team '" + deployedPad.Team + "'") + " (tank team '" + myUnit.team +
+                "deployed 'RepairPad': " + (deployedPad == null ? "NONE" : "team '" + deployedPad.Team + "' room-owned=" + roomOwned) + " (tank team '" + myUnit.team +
                 "'), own-team pads " + ownPadsBefore + " -> " + ownPadsWithPreview + " with the preview (must not count) -> " +
                 RepairPad.Count(myUnit.team) + ", hold now '" + hold.pickedUpCargo + "'");
             if (deployedPad != null)
@@ -759,8 +763,29 @@ namespace Wulfram.SmokeTest
                 {
                     spot.y = Terrain.activeTerrain.SampleHeight(spot) + Terrain.activeTerrain.transform.position.y;
                 }
-                GameObject newPad = PhotonNetwork.Instantiate("RepairPad", spot, Quaternion.identity, 0, new object[] { myTeam });
+                // The deploy path a teammate's ',' + click takes (GameManager.DeployUnit).
                 float padAt = Time.realtimeSinceStartup;
+                gameManager.DeployUnit("RepairPad", spot, Quaternion.identity, myTeam);
+                GameObject newPad = null;
+                while (newPad == null && Time.realtimeSinceStartup < padAt + 5f)
+                {
+                    foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+                    {
+                        if (pad.GetComponent<Com.Wulfram3.Unit>().deployed && Vector3.Distance(pad.transform.position, spot) < 1f)
+                        {
+                            newPad = pad.gameObject;
+                        }
+                    }
+                    if (newPad == null)
+                    {
+                        yield return null;
+                    }
+                }
+                if (newPad == null)
+                {
+                    Check(phase + "-new-pad", false, "the teammate's pad was never created");
+                    yield break;
+                }
                 while (movement.isDead && Time.realtimeSinceStartup < padAt + 5f)
                 {
                     yield return null;

@@ -61,6 +61,12 @@ the gameplay test, 2026-10-20).
   clamps and broadcasts `UpdateHealth` to all. Healing on respawn goes through `TellServerHealth`.
 - The master destroys non-player units at 0 health (`GameManager.UnitsHealthUpdated`) and spawns shells
   and explosions.
+- **Deployed units belong to the room** (amended 2026-10-26, architecture review C1): a deploy is a
+  request to the master (`GameManager.DeployUnit` -> `RequestDeploy`), which creates the unit with
+  `PhotonNetwork.InstantiateSceneObject`, the deployer's team as instantiation data. PUN only lets an
+  object's owner network-destroy it, so a unit owned by the deploying client could never be removed by
+  the master; and PUN removes a leaving player's own objects (`autoCleanUpPlayerObjects`, default true),
+  so a team's base vanished with its builder.
 - Teams are compared only with `Unit.SameTeam(a, b)`; `Unit.NormalizeTeam` ignores case, spaces and a
   trailing "team". A unit with no team (`""`) belongs to no one.
 
@@ -79,6 +85,7 @@ team checks:  Unit.SameTeam(a, b) == (NormalizeTeam(a) == NormalizeTeam(b))
 - Code must never change `health` directly or call `TakeDamage` locally; it must call `TellServerTakeDamage`/`TellServerHealth`.
 - Code must never compare raw team strings with `==`, `Equals` or `ToLower()`; it must use `Unit.SameTeam`, or compare only values that came out of `Unit.NormalizeTeam` (as `MatchManager` does).
 - Only the master may destroy shared units or decide shared outcomes (see ADR-0004 for match results).
+- Shared units (anything another player can damage or use) must be created by the master as room objects (`PhotonNetwork.InstantiateSceneObject`), never with `PhotonNetwork.Instantiate` on a player's client.
 
 ## Alternatives Considered
 
@@ -129,7 +136,7 @@ Gameplay team checks (turrets, targeting, damage) were moved to `Unit.SameTeam` 
 remains (found while writing this ADR):** `Unit.Start` maps `team.ToLower()` to `unitTeam`
 (`PunTeams.Team`), which the target info panel and player name colours read. A unit spelled
 "BlueTeam" therefore shows as team `none` (grey) there. The fix is to switch on `NormalizeTeam(team)`;
-it is tracked as a small code story, not done in this docs change. The gameplay test's
+**fixed 2026-10-26** with the C1 change (`Unit.Start` now switches on `NormalizeTeam`). The gameplay test's
 `team.ToLower() == "red"` checks only read the player tank's canonical team and are harmless, but should
 use `SameTeam` when next touched.
 

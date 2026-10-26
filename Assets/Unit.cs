@@ -35,20 +35,29 @@ namespace Com.Wulfram3 {
 
         
 
+        // True for a unit deployed during the match (GameManager.RequestDeploy); MatchManager.ResetArena
+        // removes these.
+        [HideInInspector]
+        public bool deployed;
+
         // A unit deployed from cargo is created with its deployer's team as instantiation data
-        // (GroundPlacementController.Release). Only a prefab with no team of its own takes it: the
+        // (GameManager.RequestDeploy). Only a prefab with no team of its own takes it: the
         // RepairPad prefab has none, so a deployed pad used to belong to no one.
         void Awake() {
             PhotonView view = GetComponent<PhotonView>();
-            if (Unit.NormalizeTeam(team) == "" && view != null && view.instantiationData != null &&
+            if (view != null && view.instantiationData != null &&
                 view.instantiationData.Length > 0 && view.instantiationData[0] is string) {
-                team = (string)view.instantiationData[0];
+                deployed = true;
+                if (Unit.NormalizeTeam(team) == "") {
+                    team = (string)view.instantiationData[0];
+                }
             }
         }
 
         // Use this for initialization
         void Start() {
-            switch (team.ToLower())
+            // NormalizeTeam: a "BlueTeam" spelling was team none here, so the target panel showed it grey.
+            switch (Unit.NormalizeTeam(team))
             {
                 case "blue":
                     unitTeam = PunTeams.Team.blue;

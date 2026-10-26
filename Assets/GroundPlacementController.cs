@@ -153,11 +153,9 @@ public class GroundPlacementController : Photon.PunBehaviour
 
             // A network object: PhotonNetwork.Destroy, not Destroy (that left a ghost preview on other clients).
             PhotonNetwork.Destroy(currentPlaceableObject);
-            // The deployer's team goes with the unit (Unit.Awake): a deployed repair pad builds tanks
-            // for that team.
+            // The master creates the unit for the room (GameManager.DeployUnit), with the deployer's team.
             Unit deployer = GetComponentInParent<Unit>();
-            object[] data = deployer == null ? null : new object[] { deployer.team };
-            PhotonNetwork.Instantiate(baseUnit, placeObject.transform.position, placeObject.transform.rotation, 0, data);
+            gameManager.DeployUnit(baseUnit, placeObject.transform.position, placeObject.transform.rotation, deployer == null ? "" : deployer.team);
             // Empty the hold for everyone, as GameManager.RequestDropCargo does; calling SetPickedUpCargo
             // directly emptied it on this client only.
             this.GetComponentInParent<CargoManager>().photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
