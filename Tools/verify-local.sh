@@ -278,7 +278,7 @@ smoke_gameplay() {
   timeout 300 "$player" -batchmode -offlinePlay -gameplaySmokeTest > "$log" 2>&1
   tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy|pulse|cargo-pickup|cargo-drop|deploy|teams|turret|death|respawn[a-z-]*|self-destruct) (PASS|FAIL)|NOTE|exceptions=|problem)' | sed 's/^/        /'
   if tr -d '\r' < "$log" | grep -q '^GAMEPLAY: PASS$'; then
-    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, teams, turret, death, respawn, self-destruct)$(run_label "$1")"
+    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, teams, turret, death, respawn, self-destruct, win)$(run_label "$1")"
   else
     fail "gameplay$(run_label "$1") - see $log"
   fi

@@ -44,6 +44,8 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 | 2026-10-26 | `ss-gate` | `feature/game-studios-suite` | `06d5af2` | `--online --screenshots --editor` | **no result: stopped** | Stopped by the owner's report: its windowed/editor steps locked the mouse, and stopping only the task left it running. Led to `feature/gate-mouse-safety` |
 | 2026-10-26 | `ms-gate` | `feature/gate-mouse-safety` → #25 | `596738e` (= GitHub) | `--online --screenshots --editor` | VERIFIED (12/12) | `cursorReleased=True` in step 7 and both step-8 runs; 0 processes left after. Merged `aafd940` |
 | 2026-10-26 | `ss-gate2` | `feature/game-studios-suite` (with #25) → #26 | `084b65d` (= GitHub) | `--online --screenshots --editor` | VERIFIED (12/12) | 0 processes left after. Merged `f5faf2f` |
+| 2026-10-26 | `dv-gate` | **`revival` → `dev`** promotion #32 (#25–#31) | `86547c7` (= GitHub) | `--online --screenshots --editor --stress 3` | VERIFIED (all steps) | Gameplay 3/3, online M2 3/3. 0 processes left after. Merged `c4e675d`; `dev` tree = `revival` |
+| 2026-10-26 | `wc-gate` | `feature/win-condition` | `894ca26` (local, before push) | (headless) | VERIFIED (8/8) | First compile: Unity segfaulted on exit **after** a clean compile (all 4 assemblies `compilationhadfailure: False`); the automatic rerun was clean. Not reproduced, so machine instability, not code. New gameplay checks all PASS first try: `deploy-team`, `respawn-enemy-pad`, `-no-pad`, `-lone-player`, `-new-pad`, `match-armed`, `victory` (0.5 s), `match-over-no-damage`, `reset`, `draw` |
 
 ## Negative tests (test first, then fix)
 

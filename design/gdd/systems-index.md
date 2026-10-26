@@ -34,13 +34,13 @@ step 4a).
 | 9 | Pulse Cannon (`TryFirePulse`, `PulseShellManager`) | Gameplay | MVP | Implemented (row 6) | — | Fuel, Health |
 | 10 | Explosions & Splash (`ExplosionPhysicsForce`) | Gameplay | MVP | Implemented; balance question (uncapped splash) and suspected online bug | — | Health |
 | 11 | Targeting (`TargetController`, `TargetInfoController`) | Gameplay | MVP | Implemented (row 9; panel bug known) | — | Teams |
-| 12 | Death & Respawn (`GameManager.Respawn`, `RepairPad`) | Gameplay | MVP | Implemented (row 10) | — | Health, Repair Pads |
+| 12 | Death & Respawn (`GameManager.Respawn`, `RepairPad`) | Gameplay | MVP | Implemented (row 10); own-team pads only, no-pad wait | [win-condition.md](win-condition.md) | Health, Repair Pads |
 | 13 | Self-Destruct (`selfDestruct`) | Gameplay | MVP | Implemented (row 11); friendly-fire question open | — | Health, Death & Respawn |
 | 14 | Cargo (`CargoManager`, `Cargo`) | Gameplay | MVP | Implemented (row 12); 3 boxes name no prefab | — | Networking |
 | 15 | Deploy / Base Building (`GroundPlacementController`) | Gameplay | MVP | Implemented (row 13) | — | Cargo, Teams |
 | 16 | Turrets (`FlakTurretManager`, `GTManager`) | Gameplay | MVP | Implemented (row 14); SAM turret has no AI | — | Teams, Health |
 | 17 | Repair Pads (respawn points) | Gameplay | MVP | Implemented (row 10) | — | Deploy, Teams |
-| 18 | Win Condition | Gameplay | MVP | Designed (GDD approved; not implemented) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
+| 18 | Win Condition (`MatchManager`) | Gameplay | MVP | Implemented (offline-proven, gate 6e `win`; online two-client check to come) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
 | 19 | Team & Vehicle Selection (inferred) | UI | Vertical Slice | Not Started (spawning assigns teams automatically today) | — | Teams, Networking |
 | 20 | HUD (`GUIManager`, `StatusBarController`, `TeamCounter`, `PingCounter`) | UI | MVP | Implemented (manual, row 17) | — | Health, Fuel |
 | 21 | Launcher / Login (`LauncherWithLogin`) | UI | MVP | Implemented (guest login; 2018 account backend dead) | — | Networking |

@@ -163,3 +163,18 @@ final push.
 1. Should scouts count as "tanks" for elimination once they spawn? (Assumed yes.)
 2. The self-destruct friendly-fire call (open since 2026-10-20) affects edge case 3.
 3. Does the reset rebuild the starting turrets as well as the pads? (Assumed: the whole starting base.)
+
+## Implementation Notes (2026-10-26, `feature/win-condition`)
+
+- `Assets/MatchManager.cs`, added at runtime by `GameManager.Start` (the scenes are binary). The reset
+  reloads the arena scene on every client, so the whole starting base comes back (open question 3).
+- Covered by the offline gameplay test (gate step 6e): acceptance criteria 2–8. Criterion 1 is
+  checked offline only; **the online two-client check (criterion 9) is still to do**.
+- Differences from this document, kept small on purpose:
+  - after a reset, tanks start at their team's spawn point (`GameManager.spawnPoints*`), next to
+    the base, rather than on the pad itself;
+  - the HUD is a plain `OnGUI` overlay; the sound for the last enemy pad is not in yet (no asset).
+- Known limits: a player who joins after a reset is still sent the room's cached destroy events
+  for scene objects destroyed earlier (PUN caches them), and remote units' health reads 0 for a late
+  joiner until it next changes. If such a player becomes master while a team has no pads, they
+  could misjudge that team's living tanks. Both come with the online work.
