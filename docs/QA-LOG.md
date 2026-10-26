@@ -39,6 +39,11 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 | 2026-10-20 | `pc-gate` | `feature/l1-pulse-cannon` → #20 | `9d015a5` (= GitHub) | `--online --screenshots --editor --stress 3` | VERIFIED (21/21) | Gameplay ×3 including pulse. Merged `5bb076f` |
 | 2026-10-20 | `cg-gate` | `feature/l1-cargo` | `43dea5b` (= GitHub) | `--online --screenshots --editor --stress 3` | NOT VERIFIED (19/21), **rerun after the test fix** | Gameplay ×3 PASS (all cargo phases). **Online run 3: both FAIL.** Client B saw the other tank's lowest at **91** while its master saw 90, waited 30 s, and then regen failed too: a test race, fixed by `feature/m2-test-coalesced-health`. The online rerun hit it again (1 of 3); the other 2 passed. **Editor (Launcher 1):** `BadImageFormatException` in Unity's compiler (dev-PC fault, third time); 3/3 PASS on rerun. Cargo is re-gated after the test fix merges |
 | 2026-10-20 | `cg-gate2` | `feature/l1-cargo` (with #21 merged in) → #22 | `ace76a1` (= GitHub) | `--online --screenshots --editor --stress 3` | VERIFIED (21/21) | No retries; online ×3 `seen: 100,90`. Merged `93fd319` |
+| 2026-10-20 | `tu-gate` | `feature/l1-turrets` → #23 | `159bdde` (= GitHub) | `--online --screenshots --editor --stress 3` | VERIFIED (21/21) | No retries. Merged `9b8cdd6` |
+| 2026-10-26 | `dev-gate2` | **`dev`** after promotion #24 | `e1c3ec0` (= GitHub `dev`) | `--online --screenshots --editor --stress 3` | VERIFIED (21/21) | Step 8 hit the license-refresh reload; the automatic rerun (first real use) passed. Playtest build `builds\wulfram3-dev-e1c3ec0\` is this gate's player |
+| 2026-10-26 | `ss-gate` | `feature/game-studios-suite` | `06d5af2` | `--online --screenshots --editor` | **no result: stopped** | Stopped by the owner's report: its windowed/editor steps locked the mouse, and stopping only the task left it running. Led to `feature/gate-mouse-safety` |
+| 2026-10-26 | `ms-gate` | `feature/gate-mouse-safety` → #25 | `596738e` (= GitHub) | `--online --screenshots --editor` | VERIFIED (12/12) | `cursorReleased=True` in step 7 and both step-8 runs; 0 processes left after. Merged `aafd940` |
+| 2026-10-26 | `ss-gate2` | `feature/game-studios-suite` (with #25) → #26 | `084b65d` (= GitHub) | `--online --screenshots --editor` | VERIFIED (12/12) | 0 processes left after. Merged `f5faf2f` |
 
 ## Negative tests (test first, then fix)
 
@@ -75,6 +80,12 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 
 - **Unity's license refresh can force a script reload in the editor.** Seen twice: 2026-10-10 (an early editor-Play investigation, which recovered and passed) and 2026-10-16 (`rg-gate`). It happens about once a day (the log names the next check: "Next license update check is after …"). A reload during Play mode fails step 8. Before blaming the code, check the step-8 log for `License updated successfully` just before `Reloading assemblies due to reload request`.
 - **A failed first compile isn't always Unity's stale script list.** Since `feature/gate-compile-crash-label`, the gate reports the cause: a compiler crash (non-zero `exitcode` on `compilationhadfailure: True`, no `error CS`), compile errors, or Unity not finishing. The classifier was checked on the real `mono.exe` crash log, two historical compile-error logs and a truncated log.
+- **A gate must never take the owner's mouse or outlive itself (2026-10-26).** Stopping only the background task that started the suite-branch gate left `verify-local.sh` running, and it kept launching game windows that locked the owner's mouse to the screen centre. Fixed on `feature/gate-mouse-safety`:
+  - test runs release the cursor (`cursorReleased=True(1x)` vs `False(0x)` with `-smokeLockCursor`);
+  - the gate stops everything it started on any exit, and watchdogs stop it if its starter goes away (killing only the launching shell left nothing after about 6 s);
+  - `Tools/stop-gate.sh` stops all test runs while sparing playtest builds and editors the gate didn't start;
+  - window-opening steps need the owner's OK first.
+  The cleanup tests used a stand-in `Unity.exe` that just sleeps.
 - **Keep gate clones out of the VS Code workspace** (`C:\Development\wulfram-gates\`): with `git.autofetch` on, VS Code fetches any new repo it finds there, in parallel with the clone.
 - **Wait for every check run on the head SHA before merging** (push *and* pull_request runs). Branch protection refuses the merge otherwise, and that's correct.
 - **"Exactly N" assertions are flaky in a live game** (regeneration, timing). Assert bounds and the lowest/highest value seen.

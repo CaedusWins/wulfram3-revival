@@ -43,6 +43,12 @@ namespace Wulfram.SmokeTest
         private string shotsDir;
         private bool online;
         private int expectPlayers = 1;
+        // Test runs happen on someone's desktop: the game locks the cursor to its window
+        // (CursorVisibilityManager), which pinned the owner's mouse to the screen centre during gate
+        // runs (2026-10-26). Unless -smokeLockCursor, the test releases it every frame; visibility is
+        // left to the game, so what the game checks (Cursor.visible) is unchanged.
+        private bool lockCursor;
+        private int cursorReleases;
         private readonly System.Collections.Generic.List<string> firstProblems = new System.Collections.Generic.List<string>();
 
         // Online M2: the lowest health seen on each tank while they are being watched (see Update).
@@ -70,12 +76,17 @@ namespace Wulfram.SmokeTest
             float seconds = 15f;
             string shotsDir = null;
             bool online = false;
+            bool lockCursor = false;
             int expectPlayers = 1;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "-offlineSmokeTest")
                 {
                     enabled = true;
+                }
+                if (args[i] == "-smokeLockCursor")
+                {
+                    lockCursor = true;
                 }
                 if (args[i] == "-smokeOnline")
                 {
@@ -107,6 +118,7 @@ namespace Wulfram.SmokeTest
             test.shotsDir = shotsDir;
             test.online = online;
             test.expectPlayers = Mathf.Max(1, expectPlayers);
+            test.lockCursor = lockCursor;
         }
 
         // Saves the next rendered frame as <shotsDir>/<name>.png (no-op without -smokeScreenshots).
@@ -129,6 +141,11 @@ namespace Wulfram.SmokeTest
 
         private void Update()
         {
+            if (!lockCursor && Cursor.lockState != CursorLockMode.None)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                cursorReleases++;
+            }
             if (watchMine != null)
             {
                 lowestMine = Mathf.Min(lowestMine, watchMine.health);
@@ -579,7 +596,7 @@ namespace Wulfram.SmokeTest
                 " missingScripts=" + missing + " tabPicks=" + tabPicks + " tabInvalid=" + tabInvalid +
                 " probeVisibleFrames=" + probeVisibleFrames + " probePanelShown=" + probePanelShown +
                 " returnedToLauncher=" + returnedToLauncher + " (" + SceneManager.GetActiveScene().name + ")" +
-                " exceptions=" + exceptions + " errors=" + errors + net);
+                " exceptions=" + exceptions + " errors=" + errors + " cursorReleased=" + (!lockCursor) + "(" + cursorReleases + "x)" + net);
             for (int i = 0; i < firstProblems.Count; i++)
             {
                 Debug.Log("SMOKE: problem " + (i + 1) + " - " + firstProblems[i]);

@@ -43,3 +43,17 @@ Assets/Models/Environment/Materials.meta
 # Photon App ID - local only, never committed (public repo). See Assets/Networking/PhotonCloudSettings.cs
 /Assets/Resources/PhotonAppId.local.txt
 /Assets/Resources/PhotonAppId.local.txt.meta
+
+# === Claude Code Game Studios (adopted 2026-10-26): per-developer and per-session files ===
+# From the suite's own .gitignore, Claude Code part only (its engine/build rules - *.dll, *.exe,
+# builds/ - are not taken: this Unity project tracks plugin DLLs under Assets/Plugins).
+.claude/settings.local.json
+CLAUDE.local.md
+project.local.yaml
+production/session-logs/
+production/session-state/*
+!production/session-state/.gitkeep
+.scratch/
+.claude/agent-memory/
+.claude/worktrees/
+docs/consistency-failures.md

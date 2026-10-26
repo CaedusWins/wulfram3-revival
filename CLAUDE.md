@@ -1,3 +1,94 @@
+# Claude Code Game Studios -- Game Studio Agent Architecture
+
+Indie game development managed through 49 coordinated Claude Code subagents.
+Each agent owns a specific domain, enforcing separation of concerns and quality.
+
+## Technology Stack
+
+- **Engine**: Unity **2017.3.0f3** (pinned; installed at `C:\Program Files\Unity\Editor\Unity.exe`). Not upgrading until a deliberate engine step (see "Decisions Already Made" below)
+- **Language**: C# **4.0** (Unity 2017.3's Mono compiler: no `?.`, `$"..."` or `nameof`, enforced by CI). No UnityScript or Boo (enforced by CI)
+- **Version Control**: Git, **not** trunk-based: `feature/*` → `revival/phase-0-1-bringup` → `dev` → `master`, merge commits only, every merge gated (see "Branch Model" and "QA & Merge Process" below)
+- **Build System**: Unity batch mode (`-buildWindows64Player`); local gate `Tools/verify-local.sh`; CI `.github/workflows/checks.yml`
+- **Asset Pipeline**: Unity 2017.3 import; scenes and prefabs are **binary** (diff them with `Assets/Editor/WulframSceneDump.cs`)
+
+> **Pinned engine (re-pinned 2026-10-26):** `docs/engine-reference/unity/VERSION.md` pins **Unity 2017.3.0f3 / C# 4**
+> and lists what does not exist here (Unity 6 APIs, DOTS, UI Toolkit, Addressables, URP, newer C#). The other
+> files in that folder describe the template's Unity 6.3 LTS and do NOT apply. The project facts in the second
+> half of this file win over any template default.
+
+> **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
+> dedicated sub-specialists. Use the set matching your engine.
+
+## Project Structure
+
+@.claude/docs/directory-structure.md
+
+## Engine Version Reference
+
+<!-- ENGINE-REFERENCE-IMPORT: the line below is engine-specific. /setup-engine
+     rewrites it to @docs/engine-reference/<engine>/VERSION.md for the chosen
+     engine, so a Unity or Unreal project stops loading the Godot reference every
+     session. It defaults to Godot (the template's example engine); skills that
+     need the pinned version read docs/engine-reference/<engine>/VERSION.md on
+     demand regardless of this import. -->
+@docs/engine-reference/unity/VERSION.md
+
+
+## Technical Preferences
+
+`project.yaml` at the repo root is the primary config store — engine, specialists,
+naming, platform, performance, modes. Skills resolve it via `resolve_config`
+(see `.claude/docs/config-resolution.md`).
+
+`.claude/docs/technical-preferences.md` is the **legacy fallback**, read on demand
+when a key is absent from `project.yaml`. It is not imported here: before
+`/setup-engine` runs it is almost entirely `[TO BE CONFIGURED]` placeholders, and
+after it runs `project.yaml` holds the real values.
+
+## Coordination Rules
+
+@.claude/docs/coordination-rules.md
+
+## Collaboration Protocol
+
+**User-driven collaboration, not autonomous execution.**
+Every task follows: **Question -> Options -> Decision -> Draft -> Approval**
+
+- Agents MUST ask "May I write this to [filepath]?" before using Write/Edit tools
+  (exempt: `active.md` appends, agent memory, a subagent's new file at the path
+  its orchestrating skill named; see `.claude/rules/agent-memory.md`)
+- Agents MUST show drafts or summaries before requesting approval
+- Multi-file changes require explicit approval for the full changeset
+- No commits without user instruction
+- A skipped or dismissed question is not an answer: act on nothing, re-ask in
+  plain text and wait
+- Started outside this file's folder? Warn first: hooks, deny rules and the
+  ask-first mode load only when Claude Code starts here
+
+See `docs/COLLABORATIVE-DESIGN-PRINCIPLE.md` for full protocol and examples.
+
+> **First session?** If the project has no engine configured and no game concept,
+> run `/start` to begin the guided onboarding flow.
+
+## Coding Standards
+
+@.claude/docs/coding-standards.md
+
+## Context Management
+
+Read `.claude/docs/context-management.md` on demand — it is a reference, not
+session context. Two of its conventions are load-bearing and cited by name
+elsewhere in the repo, so they are restated here rather than lost:
+
+- **`production/session-state/active.md` is the session checkpoint.** The file is
+  the memory, not the conversation. Read it first after any compaction, crash, or
+  `/clear`.
+- **Helpers in `.claude/scripts/` emit observations, never verdicts.** A script
+  that scores or judges will eventually contradict a mode or override it cannot
+  see. (Cited by `artifact-check.sh` and `adr-dep-graph.sh`.)
+
+---
+
 # Wulfram3 Revival — Project Context
 
 This file is the living state of the Wulfram revival project. It's meant to be maintained continuously as work progresses, and to be enough on its own for a new session (human or Claude) to pick up exactly where things left off if this conversation is ever lost. If you're an AI assistant reading this cold: read this whole file before doing anything else in this repo.
@@ -10,8 +101,15 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
 - `docs/L1-LOCAL-PLAYABILITY.md` — the current milestone's checklist: what "plays end to end locally" means, row by row, with status and how each row gets proven.
 - `docs/QA-LOG.md` — every gate run a merge rested on (commit, flags, verdict), negative tests, and where the logs/screenshots are kept (outside git).
+- **Claude Code Game Studios** (adopted 2026-10-26): `.claude/` (49 agents, skills, hooks, rules, docs), `project.yaml` (its config; `/start` and `/setup-engine` write it), `design/` `production/` `studio-tests/`, `docs/WORKFLOW-GUIDE.md`, `docs/engine-reference/`. License and provenance: `.claude/LICENSE-ClaudeCodeGameStudios`. Upgrades: `UPGRADING.md`.
 
-**Immediate next action (as of 2026-10-16, evening): L1 — Local Playability, before any more online work** (owner's decision; see Decisions and `docs/L1-LOCAL-PLAYABILITY.md`). Done today:
+**Immediate next action (as of 2026-10-26):** L1's automated work is done: 15/20 rows proven by the gameplay test (gate step 6e, every gate, 12 phase groups). Merged since 2026-10-16: PRs #15-#26 - RPC check (0 findings), gameplay test, death/respawn, pulse, cargo (4 online fixes), turrets (team fix), M2 test race fix, gate compile-crash label, **gate desktop safety (#25: tests release the mouse; nothing a run starts outlives it; `Tools/stop-gate.sh`)**, **Claude Code Game Studios v1.2.0, full adoption (#26)**. `dev` = `e1c3ec0` (promotion #24, VERIFIED 21/21); revival is ahead only by #25/#26 (tooling). `master` untouched. Next:
+1. **Studio suite: configured 2026-10-26** (`feature/studio-setup`): the `/setup-engine` + `/start` steps (engine pinned to Unity 2017.3 / C# 4, rigor standard, automation guided) and a focused `/adopt` pass. Follow `docs/adoption-plan-2026-10-26.md` next: game concept, systems index, `project.stage`, then the first sprint (the rest of L1). Open Claude Code **in `wulfram3/`** to use its skills.
+2. **Owner playtest** of `builds\wulfram3-dev-e1c3ec0\` (L1 manual rows 3, 4, 13-rotate, 17, 18) and three design calls: self-destruct friendly fire, flak one-shot (uncapped splash), what `BlueCargo` deploys.
+3. **Owner:** Windows Memory Diagnostic (dev-PC instability, see QA log).
+4. Then: cargo-box name fix (`'Repair Pad'`), promote revival → `dev`, and - after L1 sign-off - online work (join fix, real two-person match, chat, RPC trust).
+
+**Earlier status (2026-10-16, evening):**
 - regeneration fix (PR #11, `bcc0228`);
 - QA stage (PR #13, `be5ea61`): lockstep online smoke, gate `SUMMARY.txt`, `--stress N`, license-refresh rerun;
 - **first promotion to `dev`** (PR #14, `a17c31e`), **VERIFIED 17/17** on a fresh clone of `dev` (`--screenshots --editor --online --stress 3`).
@@ -80,6 +178,8 @@ One branch per outstanding work item from "What's Still Broken" below, so each c
 - **`feature/l1-cargo`** — `GroundPlacementController.TogglePlacement`/`Release` extracted (no behaviour change); cargo RPCs send the PhotonView ID (RPC check now 0 findings); deploy is owner-only, removes its preview with `PhotonNetwork.Destroy` and empties the hold for everyone; gameplay test cargo-pickup/cargo-drop/deploy phases (L1 rows 12/13). 2026-10-20.
 - **`feature/l1-cargo` merged 2026-10-20 (PR #22, `93fd319`)**, VERIFIED 21/21 after #21 (the online test fix, PR #21, `f91f5ca`).
 - **`feature/l1-turrets`** — the team audit and live-turret phases (L1 row 14); `Unit.SameTeam` for every team check; unit prefab team data fixed with `WulframFixUnitTeams`; `WulframSceneDump.DumpPrefabs`. 2026-10-20.
+- **`feature/l1-turrets` merged 2026-10-20 (PR #23, `9b8cdd6`)**, VERIFIED 21/21. **Second promotion to `dev`: 2026-10-26 (PR #24, `e1c3ec0`).**
+- **`feature/game-studios-suite`** — Claude Code Game Studios v1.2.0, full adoption: framework files byte-identical to the release, our `CLAUDE.md` content kept below the suite's protocol (stack filled with Unity 2017.3 / C# 4 / our branch model), `.gitattributes` and `.gitignore` merged (its `*.dll`/`builds/` ignore rules not taken). 2026-10-26.
 - **`feature/m2-photon-cloud`** — M2: Photon Cloud with a local-only App ID, chat off, online smoke test with two clients and damage both ways, `verify-local --online`. **Merged 2026-10-10 (PR #5, `c820d62`).**
 - **`feature/offline-play`** — offline practice play with no Photon server (`-offlinePlay` / Wulfram menu in the editor), plus an editor Play-mode check in the verification gate. **Merged 2026-10-10 (PR #3, `873d5fd`), after `Tools/verify-local.sh --windowed --editor` printed VERIFIED on a fresh clone of `dc5899a`.** See "Playing and testing locally".
 - **`feature/m2-photon-pun2-migration`** — replace the dead Photon AWS endpoint/App ID with a fresh Photon Cloud app, migrate PUN Classic → PUN2 via Photon's official converter tool.
@@ -209,7 +309,7 @@ On `feature/m1-scene-build-settings`, pre-merge audit, 2026-10-07 (`0a168cf`..`1
 - **Unused legacy, harmless, not cleaned up:** `Assets/Scenes/Launcher.unity` + `Launcher.cs` (superseded by `Launcher 1.unity` / `LauncherWithLogin`); `Assets/Scenes/PlayerInputField.cs` (class `PlayerNameInputField`, a dead copy of a Photon tutorial script, referenced by nothing, with a file-name/class mismatch); `LauncherWithLogin.playername` field (unassigned, unused).
 - **Photon networking: working (M2), with the App ID kept out of git.** The committed `PhotonServerSettings.asset` still says self-hosted `18.218.55.176` (dead), and it is deliberately **not** edited. At startup, `Assets/Networking/PhotonCloudSettings.cs` takes the App ID from `-photonAppId`, then `WULFRAM_PHOTON_APPID`, then **`Assets/Resources/PhotonAppId.local.txt`** (gitignored; the user's machine has it; it's baked into builds). It then switches an **in-memory copy** of the settings to Photon Cloud, region `us` (override with `-photonRegion`); changing the asset itself could be saved back by the editor or AutoSaver and leak the ID. CI fails if that local file is ever committed. **A fresh clone has no App ID**, so online play needs the file, or the variable, recreated. **Builds contain the App ID**, so share them privately; Photon's dashboard suggests adding authentication before any public release (M3). PUN Classic → PUN2 is no longer needed for M2. It's a later upgrade that requires Unity 2017.4.7+ first.
 - **No real account/stats backend** — `OfflineMode` is a stopgap for local testing, not a long-term replacement for the dead `wulfram.com:1337` service. Current leaning: ship an accountless "quick play" mode first rather than building a replacement backend immediately.
-- **SECURITY — leaked Discord webhook is still live in public git history; revocation is USER ACTION, not done yet.** The URL (with its auth token) was removed from `DiscordApi.cs` earlier, and on 2026-08-29 two more commented-out copies were found and scrubbed from `Assets/Scenes/Launcher.cs` and `LauncherWithLogin.cs` (caught by the new CI secret scan while testing it locally). But it has been in git history since 2017 — in this fork *and* in upstream `Wulfram3/wulfram3`, both public repos — so no tree cleanup or history rewrite fully un-leaks it. **The only real fix: revoke/delete that webhook in Discord (Server Settings → Integrations → Webhooks) and create a new one if the feature is wanted.** Until the user confirms this is done, treat the credential as compromised.
+- **Discord webhook (2017, NOT ours) — no owner action (decided 2026-10-26).** It was committed by the original Wulfram3 team; we removed it from current code and CI blocks any new one. It remains in old public history (ours and upstream's); only that server's owners (or Discord) can revoke it, and using the leaked URL ourselves - even to check it - is off-limits. Original note: The URL (with its auth token) was removed from `DiscordApi.cs` earlier, and on 2026-08-29 two more commented-out copies were found and scrubbed from `Assets/Scenes/Launcher.cs` and `LauncherWithLogin.cs` (caught by the new CI secret scan while testing it locally). But it has been in git history since 2017 — in this fork *and* in upstream `Wulfram3/wulfram3`, both public repos — so no tree cleanup or history rewrite fully un-leaks it. **The only real fix: revoke/delete that webhook in Discord (Server Settings → Integrations → Webhooks) and create a new one if the feature is wanted.** Until the user confirms this is done, treat the credential as compromised.
 - **SECURITY — the original account backend used plaintext HTTP.** `UserController.cs` pointed at `http://wulfram.com:1337/` (not HTTPS): usernames/passwords would have crossed the wire unencrypted. Dead and bypassed now; any rebuilt backend must be HTTPS-only from day one.
 - **SECURITY — no server-side validation on client-sent RPCs.** Photon `PunRPC` handlers (`TakeDamage`, `SetContent`, cargo pickup/drop) trust whatever a client sends; a modified client can forge damage/kill/cargo values. Not a memory-safety issue (managed C#), but the real cheat vector for a revived multiplayer game. Needs a trust-model decision (master-client authority vs. validation) before any public playtest (M3) — not blocking M2.
 
@@ -229,6 +329,11 @@ On `feature/m1-scene-build-settings`, pre-merge audit, 2026-10-07 (`0a168cf`..`1
   - `feature/*` → `revival/phase-0-1-bringup`: `checks` green **and** `Tools/verify-local.sh --windowed` prints `VERIFIED` on a **fresh clone of the exact commit being merged** (merge with `gh pr merge --merge --match-head-commit <sha>`, so nothing else slips in).
   - `revival/phase-0-1-bringup` → `dev`: all of the above **and** the milestone's own end-to-end proof (M1: opens/compiles/scenes clean; M2: two clients in one Photon room, damage lands both ways).
   - `dev` → `master`: `dev` has been exercised by real play (closed playtest, M3) with no open blockers.
+- **Desktop etiquette: test runs must not take the owner's mouse, and must not outlive themselves** (owner rule, 2026-10-26, after a stopped gate kept launching game windows that pinned the mouse to the screen centre):
+  1. **Ask the owner before any run that opens windows.** That means `--windowed`, `--screenshots` and `--editor` (step 7: a game window for about 30 s; step 8: the Unity editor twice, 1–2 min each). Those flags are opt-in, and the gate prints a NOTE before each such step. Headless steps (1–6e, the online pairs) open no windows and may run anytime.
+  2. **Test runs release the mouse.** `OfflineSmokeTest` and `GameplaySmokeTest` unlock the cursor every frame. The game locks it to its window via `CursorVisibilityManager`; `Cursor.visible`, which the game's checks use, is left alone. The `SMOKE:` line reports `cursorReleased=True(Nx)`, and `-smokeLockCursor` restores the game's lock if a test ever needs it.
+  3. **Nothing a run starts outlives it.** `verify-local.sh` calls `Tools/stop-gate-processes.ps1` on every exit (done, failed, interrupted) to stop its players, Unity runs and their child processes. Watchdogs stop the run if the shell that started it goes away. Tested: killing only the launching shell left nothing running after about 6 s.
+  4. **Stop a gate with `Tools/stop-gate.sh`, never by stopping only the shell or task that started it.** It stops every test run on the machine, and never touches a playtest build under `builds\` or a Unity editor a gate didn't start (both tested).
 - **Gate clones (2026-10-16):** clone into **`C:\Development\wulfram-gates\<name>`**, outside the VS Code workspace folder. The owner's VS Code has `git.autofetch: true` and started a second, full GitHub fetch into a gate clone inside the workspace one second after the clone began, doubling a 40-minute download. Clone from the local repo (`git clone --no-checkout --branch <b> --single-branch <local repo>`, sparse `'/*' '!/windows/'`), then check that `git rev-parse HEAD` equals `git ls-remote <GitHub> refs/heads/<b>`. Git commits are content hashes, so an equal SHA means identical content. Copy `<out>` minus `player/` to `qa-artifacts\gate-runs\<name>\`, add a QA-LOG row, and delete the clone.
 - **Promotion runbook, revival → dev:**
   1. The revival head's tree must be identical to an already-verified feature head; otherwise run the gate on revival first.
@@ -242,7 +347,8 @@ On `feature/m1-scene-build-settings`, pre-merge audit, 2026-10-07 (`0a168cf`..`1
 
 ## Working Preferences
 
-- Hands-off for routine local dev/git work (branch creation, commits, file edits) — don't ask permission for each step.
+- **2026-10-26: the owner chose FULL adoption of Claude Code Game Studios** (Donchitos, v1.2.0, MIT; `.claude/`, `project.yaml`). Its Collaboration Protocol at the top of this file now governs: agents ask "May I write this to [path]?" before writing, show drafts before approval, and make **no commits without the owner's instruction**. That replaces the hands-off line below for work done through the studio. Open Claude Code **in this folder** (`wulfram3/`), or its hooks, deny rules and skills don't load. Python 3 (needed by its hooks and skills) was installed 2026-10-26.
+- (Before 2026-10-26:) Hands-off for routine local dev/git work (branch creation, commits, file edits) — don't ask permission for each step.
 - Confirm before anything that leaves the machine: pushing to GitHub, merging into `dev` or `master`.
 - Push feature-branch work to GitHub at reasonable checkpoints as we go.
 - (This preference is also saved in Claude's cross-session memory for this project folder, but restate it if starting a session rooted somewhere else.)
