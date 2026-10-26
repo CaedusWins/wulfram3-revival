@@ -1,3 +1,95 @@
+# Claude Code Game Studios -- Game Studio Agent Architecture
+
+Indie game development managed through 49 coordinated Claude Code subagents.
+Each agent owns a specific domain, enforcing separation of concerns and quality.
+
+## Technology Stack
+
+- **Engine**: Unity **2017.3.0f3** (pinned; installed at `C:\Program Files\Unity\Editor\Unity.exe`). Not upgrading until a deliberate engine step (see "Decisions Already Made" below)
+- **Language**: C# **4.0** (Unity 2017.3's Mono compiler: no `?.`, `$"..."` or `nameof`, enforced by CI). No UnityScript or Boo (enforced by CI)
+- **Version Control**: Git, **not** trunk-based: `feature/*` → `revival/phase-0-1-bringup` → `dev` → `master`, merge commits only, every merge gated (see "Branch Model" and "QA & Merge Process" below)
+- **Build System**: Unity batch mode (`-buildWindows64Player`); local gate `Tools/verify-local.sh`; CI `.github/workflows/checks.yml`
+- **Asset Pipeline**: Unity 2017.3 import; scenes and prefabs are **binary** (diff them with `Assets/Editor/WulframSceneDump.cs`)
+
+> **Pinned-engine warning (2026-10-26):** `docs/engine-reference/unity/` as shipped describes **Unity 6.3 LTS**.
+> This project is **Unity 2017.3.0f3 / C# 4**: Unity 6 APIs, DOTS, UI Toolkit, Addressables and newer C#
+> do not compile here. Run `/setup-engine` to re-pin that reference to the installed 2017.3 editor; until
+> then, treat its API advice as not applicable. The project facts in the second half of this file win
+> over any template default.
+
+> **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
+> dedicated sub-specialists. Use the set matching your engine.
+
+## Project Structure
+
+@.claude/docs/directory-structure.md
+
+## Engine Version Reference
+
+<!-- ENGINE-REFERENCE-IMPORT: the line below is engine-specific. /setup-engine
+     rewrites it to @docs/engine-reference/<engine>/VERSION.md for the chosen
+     engine, so a Unity or Unreal project stops loading the Godot reference every
+     session. It defaults to Godot (the template's example engine); skills that
+     need the pinned version read docs/engine-reference/<engine>/VERSION.md on
+     demand regardless of this import. -->
+@docs/engine-reference/godot/VERSION.md
+
+
+## Technical Preferences
+
+`project.yaml` at the repo root is the primary config store — engine, specialists,
+naming, platform, performance, modes. Skills resolve it via `resolve_config`
+(see `.claude/docs/config-resolution.md`).
+
+`.claude/docs/technical-preferences.md` is the **legacy fallback**, read on demand
+when a key is absent from `project.yaml`. It is not imported here: before
+`/setup-engine` runs it is almost entirely `[TO BE CONFIGURED]` placeholders, and
+after it runs `project.yaml` holds the real values.
+
+## Coordination Rules
+
+@.claude/docs/coordination-rules.md
+
+## Collaboration Protocol
+
+**User-driven collaboration, not autonomous execution.**
+Every task follows: **Question -> Options -> Decision -> Draft -> Approval**
+
+- Agents MUST ask "May I write this to [filepath]?" before using Write/Edit tools
+  (exempt: `active.md` appends, agent memory, a subagent's new file at the path
+  its orchestrating skill named; see `.claude/rules/agent-memory.md`)
+- Agents MUST show drafts or summaries before requesting approval
+- Multi-file changes require explicit approval for the full changeset
+- No commits without user instruction
+- A skipped or dismissed question is not an answer: act on nothing, re-ask in
+  plain text and wait
+- Started outside this file's folder? Warn first: hooks, deny rules and the
+  ask-first mode load only when Claude Code starts here
+
+See `docs/COLLABORATIVE-DESIGN-PRINCIPLE.md` for full protocol and examples.
+
+> **First session?** If the project has no engine configured and no game concept,
+> run `/start` to begin the guided onboarding flow.
+
+## Coding Standards
+
+@.claude/docs/coding-standards.md
+
+## Context Management
+
+Read `.claude/docs/context-management.md` on demand — it is a reference, not
+session context. Two of its conventions are load-bearing and cited by name
+elsewhere in the repo, so they are restated here rather than lost:
+
+- **`production/session-state/active.md` is the session checkpoint.** The file is
+  the memory, not the conversation. Read it first after any compaction, crash, or
+  `/clear`.
+- **Helpers in `.claude/scripts/` emit observations, never verdicts.** A script
+  that scores or judges will eventually contradict a mode or override it cannot
+  see. (Cited by `artifact-check.sh` and `adr-dep-graph.sh`.)
+
+---
+
 # Wulfram3 Revival — Project Context
 
 This file is the living state of the Wulfram revival project. It's meant to be maintained continuously as work progresses, and to be enough on its own for a new session (human or Claude) to pick up exactly where things left off if this conversation is ever lost. If you're an AI assistant reading this cold: read this whole file before doing anything else in this repo.
@@ -10,6 +102,7 @@ This file is the living state of the Wulfram revival project. It's meant to be m
 - `README.md` — the original 2018 player manual (how to play), untouched except for a pointer at the top to the other two.
 - `docs/L1-LOCAL-PLAYABILITY.md` — the current milestone's checklist: what "plays end to end locally" means, row by row, with status and how each row gets proven.
 - `docs/QA-LOG.md` — every gate run a merge rested on (commit, flags, verdict), negative tests, and where the logs/screenshots are kept (outside git).
+- **Claude Code Game Studios** (adopted 2026-10-26): `.claude/` (49 agents, skills, hooks, rules, docs), `project.yaml` (its config; `/start` and `/setup-engine` write it), `design/` `production/` `studio-tests/`, `docs/WORKFLOW-GUIDE.md`, `docs/engine-reference/`. License and provenance: `.claude/LICENSE-ClaudeCodeGameStudios`. Upgrades: `UPGRADING.md`.
 
 **Immediate next action (as of 2026-10-16, evening): L1 — Local Playability, before any more online work** (owner's decision; see Decisions and `docs/L1-LOCAL-PLAYABILITY.md`). Done today:
 - regeneration fix (PR #11, `bcc0228`);
@@ -80,6 +173,8 @@ One branch per outstanding work item from "What's Still Broken" below, so each c
 - **`feature/l1-cargo`** — `GroundPlacementController.TogglePlacement`/`Release` extracted (no behaviour change); cargo RPCs send the PhotonView ID (RPC check now 0 findings); deploy is owner-only, removes its preview with `PhotonNetwork.Destroy` and empties the hold for everyone; gameplay test cargo-pickup/cargo-drop/deploy phases (L1 rows 12/13). 2026-10-20.
 - **`feature/l1-cargo` merged 2026-10-20 (PR #22, `93fd319`)**, VERIFIED 21/21 after #21 (the online test fix, PR #21, `f91f5ca`).
 - **`feature/l1-turrets`** — the team audit and live-turret phases (L1 row 14); `Unit.SameTeam` for every team check; unit prefab team data fixed with `WulframFixUnitTeams`; `WulframSceneDump.DumpPrefabs`. 2026-10-20.
+- **`feature/l1-turrets` merged 2026-10-20 (PR #23, `9b8cdd6`)**, VERIFIED 21/21. **Second promotion to `dev`: 2026-10-26 (PR #24, `e1c3ec0`).**
+- **`feature/game-studios-suite`** — Claude Code Game Studios v1.2.0, full adoption: framework files byte-identical to the release, our `CLAUDE.md` content kept below the suite's protocol (stack filled with Unity 2017.3 / C# 4 / our branch model), `.gitattributes` and `.gitignore` merged (its `*.dll`/`builds/` ignore rules not taken). 2026-10-26.
 - **`feature/m2-photon-cloud`** — M2: Photon Cloud with a local-only App ID, chat off, online smoke test with two clients and damage both ways, `verify-local --online`. **Merged 2026-10-10 (PR #5, `c820d62`).**
 - **`feature/offline-play`** — offline practice play with no Photon server (`-offlinePlay` / Wulfram menu in the editor), plus an editor Play-mode check in the verification gate. **Merged 2026-10-10 (PR #3, `873d5fd`), after `Tools/verify-local.sh --windowed --editor` printed VERIFIED on a fresh clone of `dc5899a`.** See "Playing and testing locally".
 - **`feature/m2-photon-pun2-migration`** — replace the dead Photon AWS endpoint/App ID with a fresh Photon Cloud app, migrate PUN Classic → PUN2 via Photon's official converter tool.
@@ -242,7 +337,8 @@ On `feature/m1-scene-build-settings`, pre-merge audit, 2026-10-07 (`0a168cf`..`1
 
 ## Working Preferences
 
-- Hands-off for routine local dev/git work (branch creation, commits, file edits) — don't ask permission for each step.
+- **2026-10-26: the owner chose FULL adoption of Claude Code Game Studios** (Donchitos, v1.2.0, MIT; `.claude/`, `project.yaml`). Its Collaboration Protocol at the top of this file now governs: agents ask "May I write this to [path]?" before writing, show drafts before approval, and make **no commits without the owner's instruction**. That replaces the hands-off line below for work done through the studio. Open Claude Code **in this folder** (`wulfram3/`), or its hooks, deny rules and skills don't load. Python 3 (needed by its hooks and skills) was installed 2026-10-26.
+- (Before 2026-10-26:) Hands-off for routine local dev/git work (branch creation, commits, file edits) — don't ask permission for each step.
 - Confirm before anything that leaves the machine: pushing to GitHub, merging into `dev` or `master`.
 - Push feature-branch work to GitHub at reasonable checkpoints as we go.
 - (This preference is also saved in Claude's cross-session memory for this project folder, but restate it if starting a session rooted somewhere else.)
