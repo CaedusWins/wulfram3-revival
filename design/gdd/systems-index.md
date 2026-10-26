@@ -40,7 +40,7 @@ step 4a).
 | 15 | Deploy / Base Building (`GroundPlacementController`) | Gameplay | MVP | Implemented (row 13) | — | Cargo, Teams |
 | 16 | Turrets (`FlakTurretManager`, `GTManager`) | Gameplay | MVP | Implemented (row 14); SAM turret has no AI | — | Teams, Health |
 | 17 | Repair Pads (respawn points) | Gameplay | MVP | Implemented (row 10) | — | Deploy, Teams |
-| 18 | Win Condition (inferred) | Gameplay | MVP | **Not Started** — the manual's rule: destroy all enemy tanks and repair pads | — | Teams, Repair Pads, Death & Respawn |
+| 18 | Win Condition | Gameplay | MVP | Designed (GDD in review; not implemented) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
 | 19 | Team & Vehicle Selection (inferred) | UI | Vertical Slice | Not Started (spawning assigns teams automatically today) | — | Teams, Networking |
 | 20 | HUD (`GUIManager`, `StatusBarController`, `TeamCounter`, `PingCounter`) | UI | MVP | Implemented (manual, row 17) | — | Health, Fuel |
 | 21 | Launcher / Login (`LauncherWithLogin`) | UI | MVP | Implemented (guest login; 2018 account backend dead) | — | Networking |
