@@ -25,3 +25,41 @@ framework:
 # here. `/settings --local <key>=<value>` writes there; `/settings <key>=<value>`
 # edits this file. See `.claude/docs/config-resolution.md` for the full
 # precedence order.
+
+# --- Configured 2026-10-26 for Wulfram3 (the /setup-engine and /start steps, run by Claude on the
+# owner's go-ahead). Values follow the suite's tables except where Unity 2017.3 differs; each
+# difference is commented.
+
+modes:
+  rigor: standard          # middle tier; QA rigor already comes from Tools/verify-local.sh + CI
+  automation: guided       # skills recommend and proceed; automation_always_ask categories still ask
+
+engine:
+  name: "Unity"
+  version: "2017.3.0f3"
+  language: "C#"           # C# 4.0 - Unity 2017.3's Mono compiler (no ?., $"", nameof; CI-enforced)
+  rendering: "Built-in Render Pipeline"   # the table's URP did not exist in 2017.3
+  physics: "PhysX"
+  path: "C:/Program Files/Unity/Editor/Unity.exe"
+
+specialists:
+  code: "unity-specialist"
+  shader: "unity-shader-specialist"
+  ui: "unity-ui-specialist"   # UGUI (Unity UI), not UI Toolkit
+  additional: []              # DOTS / Addressables do not exist in 2017.3
+
+naming:
+  classes: PascalCase
+  variables: camelCase
+  constants: SCREAMING_SNAKE   # UNVERIFIED - not sourceable from
+                               # docs/engine-reference/unity/; the 2018 code mixes styles
+  signals: PascalCase On<Event>
+  files: PascalCase
+  scenes: PascalCase           # existing scenes are 'Launcher 1' and 'Playground' (don't rename: LoadScene(0))
+
+commands:
+  # Unity 2017.3's exit code is NOT trusted (it can be 0 with compile errors): read the logs.
+  build: '"C:/Program Files/Unity/Editor/Unity.exe" -batchmode -quit -nographics -projectPath . -logFile Temp/build.log -buildWindows64Player Builds/Win64/Wulfram3.exe'
+  test: "bash Tools/verify-local.sh"   # the project's gate - headless steps only; add --online/--windowed/--editor deliberately
+  run: "Builds/Win64/Wulfram3.exe -screen-width 1280 -screen-height 720 -screen-fullscreen 0 -offlinePlay"   # opens a window: ask the owner first (CLAUDE.md, desktop etiquette)
+  smoke: '"C:/Program Files/Unity/Editor/Unity.exe" -batchmode -quit -nographics -projectPath . -logFile Temp/smoke-compile.log'   # then grep Temp/smoke-compile.log for "compilationhadfailure: True"
