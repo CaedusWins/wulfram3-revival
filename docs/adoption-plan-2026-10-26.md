@@ -82,11 +82,12 @@ cargo (what `BlueCargo` deploys).
 
 ### 4b. ADRs for decisions already made
 `/architecture-decision retrofit` for each decision recorded in `CLAUDE.md`:
-- [ ] Stay on Unity 2017.3 until a deliberate engine step
-- [ ] PUN Classic 1.88 on Photon Cloud (PUN2 deferred); App ID kept out of git
-- [ ] Local first: L1 before more online work
-- [ ] Branch model and merge policy (merge commits, fresh-clone gate, protected dev/master)
-- [ ] Team comparison through `Unit.SameTeam`; damage only through the master (`TellServerTakeDamage`)
+- [x] Stay on Unity 2017.3 until a deliberate engine step — ADR-0001 (Accepted)
+- [x] PUN Classic 1.88 on Photon Cloud (PUN2 deferred); App ID kept out of git — ADR-0002 (Accepted)
+- [x] Local first: L1 before more online work — in ADR-0005 (an ordering rule, not architecture)
+- [x] Branch model and merge policy (merge commits, fresh-clone gate, protected dev/master) — ADR-0005 (Accepted)
+- [x] Team comparison through `Unit.SameTeam`; damage only through the master (`TellServerTakeDamage`) — ADR-0003 (Accepted)
+- [ ] Added: match flow (as built in #33) — ADR-0004 (Proposed until the online match-end test passes)
 
 ### 4c. L1 as an epic with stories
 `/create-epics` and `/create-stories` from `docs/L1-LOCAL-PLAYABILITY.md`. Its 20 rows are already
