@@ -11,11 +11,10 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 - **Build System**: Unity batch mode (`-buildWindows64Player`); local gate `Tools/verify-local.sh`; CI `.github/workflows/checks.yml`
 - **Asset Pipeline**: Unity 2017.3 import; scenes and prefabs are **binary** (diff them with `Assets/Editor/WulframSceneDump.cs`)
 
-> **Pinned-engine warning (2026-10-26):** `docs/engine-reference/unity/` as shipped describes **Unity 6.3 LTS**.
-> This project is **Unity 2017.3.0f3 / C# 4**: Unity 6 APIs, DOTS, UI Toolkit, Addressables and newer C#
-> do not compile here. Run `/setup-engine` to re-pin that reference to the installed 2017.3 editor; until
-> then, treat its API advice as not applicable. The project facts in the second half of this file win
-> over any template default.
+> **Pinned engine (re-pinned 2026-10-26):** `docs/engine-reference/unity/VERSION.md` pins **Unity 2017.3.0f3 / C# 4**
+> and lists what does not exist here (Unity 6 APIs, DOTS, UI Toolkit, Addressables, URP, newer C#). The other
+> files in that folder describe the template's Unity 6.3 LTS and do NOT apply. The project facts in the second
+> half of this file win over any template default.
 
 > **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
 > dedicated sub-specialists. Use the set matching your engine.
@@ -32,7 +31,7 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
      session. It defaults to Godot (the template's example engine); skills that
      need the pinned version read docs/engine-reference/<engine>/VERSION.md on
      demand regardless of this import. -->
-@docs/engine-reference/godot/VERSION.md
+@docs/engine-reference/unity/VERSION.md
 
 
 ## Technical Preferences
