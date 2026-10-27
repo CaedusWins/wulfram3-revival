@@ -313,8 +313,8 @@ namespace Wulfram.SmokeTest
             }
             Debug.Log("GAMEPLAY: cargo boxes in the arena: " + boxes.Length + " (" + summary + ")");
             // Deploying creates the unit from Resources by the box's content name, so a content that
-            // names no prefab there can be carried but never deployed. Reported, not failed: it is
-            // scene data, fixed on its own branch (docs/L1-LOCAL-PLAYABILITY.md, row 13).
+            // names no prefab there can be carried but never deployed. Every box must be deployable
+            // (design/gdd/cargo.md: 'Repair Pad' and 'BlueCargo' are corrected when the box loads).
             string undeployable = "";
             foreach (KeyValuePair<string, int> pair in contents)
             {
@@ -324,10 +324,8 @@ namespace Wulfram.SmokeTest
                     undeployable += (undeployable.Length > 0 ? ", " : "") + pair.Key + " x" + pair.Value;
                 }
             }
-            if (undeployable.Length > 0)
-            {
-                Debug.Log("GAMEPLAY: NOTE cargo contents with no prefab in Resources (can't be deployed): " + undeployable);
-            }
+            Check("cargo-contents", undeployable.Length == 0 && boxes.Length > 0,
+                boxes.Length + " boxes, contents with no prefab in Resources (can't be deployed): " + (undeployable.Length == 0 ? "none" : undeployable));
             if (hold == null || gameManager == null || placement == null)
             {
                 Check("cargo-pickup", false, "missing " + (hold == null ? "CargoManager " : "") + (gameManager == null ? "GameManager " : "") +
@@ -618,9 +616,13 @@ namespace Wulfram.SmokeTest
             }
             yield return StartCoroutine(Wait(1f));
             int healthAfter = myHp.health;
-            Check("turret", ai != null && shellsFired > 0 && bestAim < 10f && healthAfter < healthBefore,
+            // design/gdd/turrets.md: one flak hit does at most 70 (40 direct + splash capped at 30), so a
+            // full-health tank survives it (it used to die to one).
+            const int maxFlakHit = 70;
+            Check("turret", ai != null && shellsFired > 0 && bestAim < 10f && healthAfter < healthBefore &&
+                healthAfter > 0 && healthBefore - healthAfter <= maxFlakHit,
                 "enemy " + prefab + " 25 m away: best aim " + bestAim.ToString("0.0") + " deg off the tank, flak shells fired " + shellsFired +
-                ", tank health " + healthBefore + " -> " + healthAfter);
+                ", tank health " + healthBefore + " -> " + healthAfter + " (one hit: alive, at most " + maxFlakHit + " damage)");
             if (turret != null)
             {
                 PhotonNetwork.Destroy(turret);
@@ -868,12 +870,12 @@ namespace Wulfram.SmokeTest
             int victimBefore = victimHp == null ? -1 : victimHp.health;
             float distance = Vector3.Distance(victim.transform.position, me.transform.position);
 
-            // Friendly units in range too: the blast damages every HitPointsManager in its sphere,
-            // whatever its team (the first run lost one of the two repair pads - the tank had just
-            // respawned on it). Recorded, not judged: whether that is intended is a design question.
+            // Every other unit in range. The blast hits enemies only (design/gdd/self-destruct.md): the
+            // first runs lost the player's own repair pad here (the tank had just respawned on it).
             List<Com.Wulfram3.HitPointsManager> nearby = new List<Com.Wulfram3.HitPointsManager>();
             List<int> nearbyBefore = new List<int>();
             List<string> nearbyNames = new List<string>();
+            List<bool> nearbyFriendly = new List<bool>();
             Com.Wulfram3.HitPointsManager[] all = FindObjectsOfType<Com.Wulfram3.HitPointsManager>();
             for (int i = 0; i < all.Length; i++)
             {
@@ -883,6 +885,7 @@ namespace Wulfram.SmokeTest
                     nearby.Add(all[i]);
                     nearbyBefore.Add(all[i].health);
                     Com.Wulfram3.Unit unit = all[i].GetComponent<Com.Wulfram3.Unit>();
+                    nearbyFriendly.Add(unit != null && Com.Wulfram3.Unit.NormalizeTeam(unit.team) != "" && Com.Wulfram3.Unit.SameTeam(unit.team, myUnit.team));
                     nearbyNames.Add("'" + all[i].name + "' team=" + (unit == null ? "?" : unit.team) + " " +
                         Vector3.Distance(all[i].transform.position, me.transform.position).ToString("0.0") + " m away");
                 }
@@ -902,11 +905,23 @@ namespace Wulfram.SmokeTest
                 "blast " + blastAfter.ToString("0.0") + " s after arming, tank isDead=" + movement.isDead +
                 "; enemy turret " + distance.ToString("0.0") + " m away (radius " + destruct.sphereRadius + "): " +
                 (victim == null ? "destroyed" : "health " + victimBefore + " -> " + (victimHp == null ? "?" : victimHp.health.ToString())));
+            int friendlyInRange = 0;
+            bool friendsUnhurt = true;
+            string friends = "";
             for (int i = 0; i < nearby.Count; i++)
             {
-                Debug.Log("GAMEPLAY: blast also hit " + nearbyNames[i] + ": health " + nearbyBefore[i] + " -> " +
-                    (nearby[i] == null ? "destroyed" : nearby[i].health.ToString()));
+                string after = nearby[i] == null ? "destroyed" : nearby[i].health.ToString();
+                Debug.Log("GAMEPLAY: in blast range " + nearbyNames[i] + (nearbyFriendly[i] ? " (friendly)" : "") + ": health " + nearbyBefore[i] + " -> " + after);
+                if (nearbyFriendly[i])
+                {
+                    friendlyInRange++;
+                    friendsUnhurt = friendsUnhurt && nearby[i] != null && nearby[i].health >= nearbyBefore[i];
+                    friends += (friends.Length > 0 ? ", " : "") + nearbyNames[i] + " " + nearbyBefore[i] + " -> " + after;
+                }
             }
+            // The tank respawned on its own pad, so at least that pad is in range.
+            Check("self-destruct-friendly", friendlyInRange > 0 && friendsUnhurt,
+                friendlyInRange + " friendly unit(s) in range, all unhurt=" + friendsUnhurt + " [" + friends + "]");
             if (movement.isDead)
             {
                 // The enemy takes out whatever own-team pads the blast left, so the respawn below runs

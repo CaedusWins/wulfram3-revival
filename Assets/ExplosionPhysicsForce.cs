@@ -8,6 +8,9 @@ namespace UnityStandardAssets.Effects
 {
     public class ExplosionPhysicsForce : Photon.PunBehaviour {
         public float explosionForce = 4;
+        // The most splash damage one explosion does to a unit (design/gdd/turrets.md): uncapped, a flak
+        // or pulse shell bursting on a tank (distance near 0) killed it outright.
+        public int splashCap = 30;
 
 
         private IEnumerator Start()
@@ -35,7 +38,8 @@ namespace UnityStandardAssets.Effects
                     HitPointsManager hitpoints = rb.gameObject.GetComponent<HitPointsManager>();
                     if (hitpoints != null) {
                         float distance = Vector3.Distance(rb.transform.position, transform.position);
-                        hitpoints.TakeDamage((int)(explosionForce * 3f / distance));
+                        // Capped as a float first: at distance 0 the division is infinite.
+                        hitpoints.TakeDamage((int)Mathf.Min(splashCap, explosionForce * 3f / Mathf.Max(distance, 0.001f)));
                     }
                 }
             }
