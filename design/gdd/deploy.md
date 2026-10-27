@@ -33,8 +33,8 @@ You chose the spot under fire: the turret goes down exactly where and how you pl
    facing is the tank's facing when it was shown, plus the wheel turns. A content with no prefab shows
    nothing.
 2. **Rotate (mouse wheel):** **each wheel notch turns the preview 10° about the vertical**; it stays put
-   between notches. A new preview starts unrotated. *(Owner's rule, 2026-10-27; the 2018 code spins it
-   instead, Known Issues.)*
+   between notches. A new preview starts unrotated. *(Owner's rule, 2026-10-27; the 2018 code spun it,
+   fixed in `GroundPlacementController.RotateNotches`, gate 6e `deploy-rotate`.)*
 3. **Deploy (left click):** sends the preview's position and rotation to the master
    (`GameManager.DeployUnit`) and removes the preview. The master refuses a tank that isn't the sender's, an
    empty hold, a missing prefab or an ended match; otherwise it creates the carried unit as a room object
@@ -43,7 +43,8 @@ You chose the spot under fire: the turret goes down exactly where and how you pl
 4. **Cancel (`,` again):** removes the preview; the hold keeps its cargo.
 5. **Only the owner** acts on its own tank's keys; other clients never see the preview.
 6. **Only a living tank with a hidden cursor deploys:** clicks with the cursor visible are UI clicks, and a
-   dead tank's preview is removed. *(The 2018 code checks neither, Known Issues.)*
+   dead tank's preview is removed. *(The 2018 code checked neither; fixed on the deploying client, gate 6e
+   `deploy-cursor`, `deploy-dead`. The master doesn't check it yet: Required ADR #2, RPC trust.)*
 
 ### States and Transitions
 
@@ -111,16 +112,17 @@ None beyond the preview (the hold's content on the HUD is `cargo.md` / `hud.md`)
 2. A click deploys the carried unit for the deployer's team as a room object and empties the hold (gate 6e
    `deploy`, `deploy-team`; online gate 6c `match`).
 3. The master refuses an empty hold, a missing prefab and an ended match (gate 6e `deploy-refused`).
-4. Each wheel notch turns the preview 10°, and it holds still between notches (manual, playtest A9; a gate
-   check comes with the fix).
-5. A click with the cursor visible, or from a dead tank, deploys nothing (gate check comes with the fix).
+4. Each wheel notch turns the preview 10°, and it holds still between notches; a new preview starts
+   unrotated (gate 6e `deploy-rotate`; the real wheel: playtest A9).
+5. A click with the cursor visible, or from a dead tank, deploys nothing, and a dead tank's preview is
+   removed (gate 6e `deploy-cursor`, `deploy-dead`).
 
 ## Known Issues
 
-- **The preview spins:** `RotateFromMouseWheel` adds each notch to a running total and turns the preview by
-  that total every frame, so after one notch it keeps spinning (faster with more notches and frame rate),
-  and the total carries over to the next preview. It also logs the wheel every frame.
-- **A visible cursor or a dead tank can still deploy** (rule 6 not checked).
+- **Fixed 2026-10-27 (`feature/playtest-blockers`):** the preview spun after one notch (the running total
+  was applied every frame), and a visible cursor or a dead tank could deploy.
+- **The master doesn't refuse a dead tank's deploy request** (only the deploying client checks): Required
+  ADR #2 (RPC trust).
 - **A turret deployed from the other team's box keeps the box's colour** (rule 3; review 3 F4).
 
 ## Open Questions

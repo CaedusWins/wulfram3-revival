@@ -26,6 +26,12 @@ namespace Wulfram.SmokeTest
     ///   cargo    (rows 12/13) what Q, Z and ',' + click do: pick up a box, drop it, pick it up
     ///                     again and deploy it as a unit (preview, then the unit, hold emptied); a
     ///                     deployed repair pad takes the deployer's team
+    ///   deploy-rotate / deploy-cursor (design/gdd/deploy.md) one wheel notch turns the preview 10
+    ///                     degrees and it holds still; a new preview starts unrotated; a click with the
+    ///                     cursor shown deploys nothing
+    ///   leave-button / engine-loop (design/gdd/hud.md, audio.md) the Leave Game button shows with
+    ///                     the cursor and calls GameManager.LeaveRoom; the own engine sound loops
+    ///   deploy-dead (design/gdd/deploy.md) a dead tank's preview is removed and it deploys nothing
     ///   self-destruct (row 11) the V key's handler: the blast damages a nearby enemy and kills the
     ///                     tank; with no own-team pad left the tank stays dead until a teammate's new
     ///                     pad appears, then it is rebuilt there
@@ -197,6 +203,7 @@ namespace Wulfram.SmokeTest
             yield return StartCoroutine(Pulse(me, myUnit));
             yield return StartCoroutine(CargoPickupDropDeploy(me));
             TeamAudit();
+            yield return StartCoroutine(HudAndAudio(me));
             yield return StartCoroutine(TurretAttacks(me, myUnit));
             yield return StartCoroutine(DeathAndRespawn(me));
             yield return StartCoroutine(SelfDestructAndRespawn(me, myUnit));
@@ -488,6 +495,116 @@ namespace Wulfram.SmokeTest
             int clonesAfter = CountNamed("RepairPad(Clone)") + CountNamed(unitName);
             Check("deploy-refused", hold.pickedUpCargo == "" && clonesAfter == clonesBefore,
                 "a deploy request with an empty hold: deployed units " + clonesBefore + " -> " + clonesAfter + " (must not change)");
+
+            yield return StartCoroutine(DeployRotateAndCursor(me, placement, hold));
+        }
+
+        // The preview's yaw relative to the deploy point's, in degrees (-180..180).
+        private static float PreviewYaw(GroundPlacementController placement)
+        {
+            if (placement.currentPlaceableObject == null || placement.placeObject == null)
+            {
+                return float.NaN;
+            }
+            return Mathf.DeltaAngle(placement.placeObject.transform.eulerAngles.y, placement.currentPlaceableObject.transform.eulerAngles.y);
+        }
+
+        // One mouse-wheel notch, as RotateFromMouseWheel handles it. The fixed controller has
+        // RotateNotches; the 2018 one only read the wheel into mouseWheelRotation, so the test adds the
+        // notch there, which is exactly what its RotateFromMouseWheel did with Input.mouseScrollDelta.
+        private static void WheelNotch(GroundPlacementController placement)
+        {
+            System.Reflection.MethodInfo rotate = typeof(GroundPlacementController).GetMethod("RotateNotches");
+            if (rotate != null)
+            {
+                rotate.Invoke(placement, new object[] { 1f });
+            }
+            else
+            {
+                placement.mouseWheelRotation += 1f;
+            }
+        }
+
+        // deploy-rotate and deploy-cursor (design/gdd/deploy.md rules 2 and 6).
+        private IEnumerator DeployRotateAndCursor(GameObject me, GroundPlacementController placement, Com.Wulfram3.CargoManager hold)
+        {
+            const string carried = "BlueFlakTurret";
+            hold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, carried);
+            yield return StartCoroutine(Wait(0.5f));
+            placement.TogglePlacement();
+            yield return StartCoroutine(Wait(0.3f));
+            float start = PreviewYaw(placement);
+            WheelNotch(placement);
+            yield return StartCoroutine(Wait(0.5f));
+            float afterNotch = PreviewYaw(placement);
+            yield return StartCoroutine(Wait(0.5f));
+            float later = PreviewYaw(placement);
+            placement.TogglePlacement();
+            yield return StartCoroutine(Wait(0.3f));
+            bool cancelled = placement.currentPlaceableObject == null && hold.pickedUpCargo == carried;
+            placement.TogglePlacement();
+            yield return StartCoroutine(Wait(0.5f));
+            float fresh = PreviewYaw(placement);
+            bool turned = Mathf.Abs(Mathf.DeltaAngle(start, afterNotch) - 10f) < 1f;
+            bool still = Mathf.Abs(Mathf.DeltaAngle(afterNotch, later)) < 0.5f;
+            Check("deploy-rotate", Mathf.Abs(start) < 1f && turned && still && cancelled && Mathf.Abs(fresh) < 1f,
+                "preview yaw " + start.ToString("0.0") + " -> " + afterNotch.ToString("0.0") + " after one notch (must turn 10) -> " +
+                later.ToString("0.0") + " 0.5 s later (must hold still); cancel kept the cargo=" + cancelled +
+                "; a new preview starts at " + fresh.ToString("0.0") + " (must be 0)");
+
+            // A click with the cursor shown is a UI click: nothing is deployed and the preview stays.
+            string unitName = carried + "(Clone)";
+            int before = CountNamed(unitName);
+            bool wasVisible = Cursor.visible;
+            Cursor.visible = true;
+            placement.Release();
+            yield return StartCoroutine(Wait(1f));
+            int after = CountNamed(unitName);
+            bool previewKept = placement.currentPlaceableObject != null;
+            Cursor.visible = wasVisible;
+            Check("deploy-cursor", after == before && hold.pickedUpCargo == carried && previewKept,
+                "click with the cursor shown: '" + unitName + "' count " + before + " -> " + after + " (must not change), hold '" +
+                hold.pickedUpCargo + "', preview kept=" + previewKept);
+
+            if (placement.currentPlaceableObject != null)
+            {
+                placement.TogglePlacement();
+            }
+            hold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
+            yield return StartCoroutine(Wait(0.5f));
+        }
+
+        // leave-button (design/gdd/hud.md): the HUD's Leave Game button shows while the cursor is shown,
+        // hides while it is hidden, and is wired to GameManager.LeaveRoom (row 16 used to be proven only
+        // by calling LeaveRoom directly). engine-loop (design/gdd/audio.md): the own engine sound loops.
+        private IEnumerator HudAndAudio(GameObject me)
+        {
+            UnityEngine.UI.Button leave = null;
+            foreach (UnityEngine.UI.Button button in Resources.FindObjectsOfTypeAll<UnityEngine.UI.Button>())
+            {
+                if (button.gameObject.scene.IsValid() && button.name == "Leave Button")
+                {
+                    leave = button;
+                }
+            }
+            bool wired = leave != null && leave.onClick.GetPersistentEventCount() > 0 &&
+                leave.onClick.GetPersistentMethodName(0) == "LeaveRoom" && leave.onClick.GetPersistentTarget(0) is Com.Wulfram3.GameManager;
+            bool wasVisible = Cursor.visible;
+            Cursor.visible = false;
+            yield return StartCoroutine(Wait(0.3f));
+            bool hiddenWhileDriving = leave != null && !leave.gameObject.activeInHierarchy;
+            Cursor.visible = true;
+            yield return StartCoroutine(Wait(0.3f));
+            bool shownWithCursor = leave != null && leave.gameObject.activeInHierarchy;
+            Cursor.visible = wasVisible;
+            yield return StartCoroutine(Wait(0.3f));
+            Check("leave-button", wired && hiddenWhileDriving && shownWithCursor,
+                (leave == null ? "no 'Leave Button' in the scene" : "wired to GameManager.LeaveRoom=" + wired +
+                ", hidden while driving=" + hiddenWhileDriving + ", shown with the cursor=" + shownWithCursor));
+
+            AudioSource engine = me.GetComponent<AudioSource>();
+            Check("engine-loop", engine != null && engine.clip != null && engine.clip.name == "tank" && engine.loop,
+                engine == null ? "the tank has no AudioSource" : "engine clip '" + (engine.clip == null ? "none" : engine.clip.name) + "' loop=" + engine.loop);
         }
 
         // teams (row 14): every unit prefab named Red* must be on team "red" and every Blue* on "blue";
@@ -698,6 +815,18 @@ namespace Wulfram.SmokeTest
                 Check("death", false, "player tank is missing " + (hp == null ? "HitPointsManager" : "PlayerMovementManager"));
                 yield break;
             }
+            // deploy-dead (design/gdd/deploy.md rule 6): show a preview while alive, then die with it.
+            GroundPlacementController placement = me.GetComponentInChildren<GroundPlacementController>();
+            Com.Wulfram3.CargoManager cargoHold = me.GetComponent<Com.Wulfram3.CargoManager>();
+            const string carried = "BlueFlakTurret";
+            if (placement != null && cargoHold != null)
+            {
+                cargoHold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, carried);
+                yield return StartCoroutine(Wait(0.5f));
+                placement.TogglePlacement();
+                yield return StartCoroutine(Wait(0.3f));
+            }
+            bool previewBeforeDeath = placement != null && placement.currentPlaceableObject != null;
             hp.TellServerTakeDamage(hp.maxHealth);
             float until = Time.realtimeSinceStartup + 3f;
             while (!movement.isDead && Time.realtimeSinceStartup < until)
@@ -716,6 +845,33 @@ namespace Wulfram.SmokeTest
             Check("death", movement.isDead && hp.health == 0 && fuelAfter == fuelDead,
                 "after lethal damage: isDead=" + movement.isDead + " health=" + hp.health +
                 ", trigger held while dead: fuel " + fuelDead + " -> " + fuelAfter + " (must not change)");
+
+            if (placement == null || cargoHold == null)
+            {
+                Check("deploy-dead", false, "player tank is missing " + (placement == null ? "GroundPlacementController" : "CargoManager"));
+            }
+            else
+            {
+                bool previewRemoved = placement.currentPlaceableObject == null;
+                int before = CountNamed(carried + "(Clone)");
+                placement.Release();
+                placement.TogglePlacement();
+                yield return StartCoroutine(Wait(0.5f));
+                bool noNewPreview = placement.currentPlaceableObject == null;
+                placement.Release();
+                yield return StartCoroutine(Wait(0.5f));
+                int after = CountNamed(carried + "(Clone)");
+                Check("deploy-dead", previewBeforeDeath && previewRemoved && noNewPreview && after == before && cargoHold.pickedUpCargo == carried,
+                    "preview shown while alive=" + previewBeforeDeath + ", removed at death=" + previewRemoved + ", ',' while dead shows none=" +
+                    noNewPreview + ", clicks while dead: '" + carried + "(Clone)' count " + before + " -> " + after + " (must not change), hold '" +
+                    cargoHold.pickedUpCargo + "'");
+                if (placement.currentPlaceableObject != null)
+                {
+                    Destroy(placement.currentPlaceableObject);
+                    placement.currentPlaceableObject = null;
+                }
+                cargoHold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
+            }
             yield return StartCoroutine(Respawn("respawn", me));
         }
 

@@ -115,15 +115,16 @@ This document is the UI requirement.
 3. Ping and FPS update (manual, playtest A14).
 4. The match line and result banner show the right counts and result (gate 6e `win`, 6c `match`; playtest
    A15, B4).
-5. With the cursor visible the Leave Game button shows, and clicking it returns to the launcher (manual,
-   playtest A17; a gate check comes with the fix).
+5. With the cursor visible the Leave Game button shows (hidden while driving) and is wired to
+   `GameManager.LeaveRoom` (gate 6e `leave-button`); clicking it returns to the launcher (manual, playtest
+   A17; leaving itself: gate 6b).
 6. Words agree with numbers ("1 pad") and nothing overlaps (manual, comes with the polish fix).
 
 ## Known Issues
 
-- **The Leave Game button never shows:** its panel (`ClickableUI`) is saved inactive in the scene, and the
-  `GUIManager` that would show it sits on that same inactive object, so it never runs. Players can only
-  leave by closing the game. L1 row 16 is proven only through the test calling `LeaveRoom` directly.
+- **Fixed 2026-10-27 (`feature/playtest-blockers`): the Leave Game button never showed.** Its panel
+  (`ClickableUI`) is saved inactive in the scene and the `GUIManager` that shows it sits on that panel, so
+  it never ran; `GameManager.Start` now activates the panel (code, not the binary scene).
 - **Status line 2 is a placeholder** ("Server:1 | Sector:*Map Name*").
 - **The match line overlaps the status bar** and says "1 pads".
 - **The hold's content isn't shown** (TR-cargo-007).
