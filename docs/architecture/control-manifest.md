@@ -58,7 +58,8 @@ read its ADR.
 ### Required Patterns
 
 - **Change health only through `HitPointsManager.TellServerTakeDamage` / `TellServerHealth`; the master clamps it and broadcasts `UpdateHealth` to all** — source: ADR-0003
-- **Only the master destroys shared units at 0 health and spawns shells and explosions (`GameManager.UnitsHealthUpdated`)** — source: ADR-0003
+- **Only the master destroys shared units at 0 health and spawns flak shells and unit death explosions (`GameManager.UnitsHealthUpdated`); a tank's pulse shell and its impact explosion are spawned by the tank's owner (amended 2026-10-27)** — source: ADR-0003
+- **Movement is owner-authoritative: only a tank's owner reads input and simulates its rigidbody; other clients keep it kinematic (amended 2026-10-27)** — source: ADR-0003
 - **Only the master decides shared outcomes** — source: ADR-0003
 - **Compare teams only with `Unit.SameTeam(a, b)`, or compare values that came out of `Unit.NormalizeTeam`; a unit with team `""` belongs to no one** — source: ADR-0003
 - **A deploy is a request to the master: `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID; the master refuses a tank that isn't the sender's, an empty hold, a missing prefab or a match that has ended, deploys the cargo actually on board with the tank's team (every deployed unit, whatever the box's colour; amended 2026-10-27), and empties the hold** — source: ADR-0003
@@ -68,7 +69,7 @@ read its ADR.
 
 - **Never assign `health` directly or call `TakeDamage` locally** — clients would disagree about a unit's state — source: ADR-0003
 - **Never compare raw team strings with `==`, `Equals` or `ToLower()`** — the 2018 data spells teams "blue", "Blue", "BlueTeam" — source: ADR-0003
-- **Never create a unit other players can damage or use with `PhotonNetwork.Instantiate` on a player's client** — PUN lets only the owner destroy it and deletes a leaving player's objects — source: ADR-0003
+- **Never move another client's tank; never create a unit other players can damage or use with `PhotonNetwork.Instantiate` on a player's client** — PUN lets only the owner destroy it and deletes a leaving player's objects — source: ADR-0003
 - **Never make health owner-authoritative** — scene units have no live owner; two writers per unit — source: ADR-0003
 - **Never bulk-rewrite team spellings in binary prefabs or scenes; normalize in code** — source: ADR-0003
 

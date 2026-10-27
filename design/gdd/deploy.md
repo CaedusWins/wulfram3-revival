@@ -74,6 +74,10 @@ preview yaw  = 10° × wheel notches since the preview was shown
 3. **Deploy point in the air** (tank hovering high or pitched up): the unit is created there.
 4. **Two players deploy at once:** each request is checked separately; both units are built.
 5. **Match ends with a preview showing:** the click is refused by the master; the hold keeps its cargo.
+6. **Aimed at the sky:** the preview stops following the tank (it moves only while the camera's ray hits
+   something), and a click deploys it where it was left (review 4, G5; not fixed).
+7. **Hold emptied while previewing** (cargo dropped): `,` can't cancel the preview any more; a click sends
+   a request the master refuses (empty hold) and removes it (review 4, G5; not fixed).
 
 ## Dependencies
 

@@ -81,12 +81,12 @@ step 4a).
 ### Foundation Layer (no dependencies)
 1. Networking & Match Join — every other system syncs through it
 2. Fuel — self-contained resource
-3. Audio — cosmetic
 
 ### Core Layer (depends on foundation)
 1. Hover Movement — depends on: Physics, Input
 2. Offline Play, Teams, Health & Regeneration — depend on: Networking
-3. Camera & Cursor — depends on: Hover Movement
+3. Camera & Cursor — depends on: Hover Movement (it rides the tank); the input mode it owns is shared with
+   movement, weapons and the HUD (Required ADR #4)
 4. AutoCannon, Pulse Cannon, Explosions & Splash — depend on: Fuel, Health, Teams
 5. Cargo → Deploy — depend on: Networking, Teams
 
@@ -102,3 +102,4 @@ architecture review 3.)
 ### Presentation Layer (depends on features)
 1. HUD, Launcher, Team & Vehicle Selection, Minimap — depend on the systems they show
 2. Chat — depends on: Networking
+3. Audio — cosmetic; plays the cues of the systems above it (as in `architecture.md` and `audio.md`)
