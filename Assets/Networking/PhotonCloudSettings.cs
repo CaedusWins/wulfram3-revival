@@ -110,6 +110,19 @@ namespace Wulfram.Networking
             Debug.Log("PhotonCloud: Photon Cloud, region " + region + ", App ID " + appId.Substring(0, 8) + "... (from " + source + ")");
         }
 
+        /// <summary>
+        /// This session's Photon user ID. Photon refuses a second player with the same user ID in a
+        /// room, and without one PUN uses the player's name, so two guests who drew the same name
+        /// (two windows started in the same tick) could not share a room (2026-10-27 playtest).
+        /// A fresh GUID per session makes it unique; -photonUserId sets it, for the gate's test of
+        /// a refused join.
+        /// </summary>
+        public static string NewUserId()
+        {
+            string id = Arg("-photonUserId");
+            return string.IsNullOrEmpty(id) ? System.Guid.NewGuid().ToString() : id;
+        }
+
         private static string Arg(string name)
         {
             string[] args = System.Environment.GetCommandLineArgs();
