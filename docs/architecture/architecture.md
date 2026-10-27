@@ -76,7 +76,7 @@ Numbers are the rows of `design/gdd/systems-index.md`.
 | Presentation | Launcher / Login (21) | `LauncherWithLogin` | launcher UI | ADR-0002 |
 | Presentation | Audio (22) | audio sources on prefabs | — | — |
 | Presentation | Chat (23) | Photon Chat UI (off) | — | — |
-| Presentation | Minimap / Big Map (25) | not built (a map asset, `Assets/kolmich/KGFMapSystem`, is vendored; its use is unverified) | — | — |
+| Presentation | Minimap / Big Map (25) | a HUD minimap works (the vendored `Assets/kolmich/KGFMapSystem`, seen in the `pr2-gate` screenshots, 2026-10-27; not yet documented); no Big Map | — | ADR-0006 (HUD elements) |
 
 Layering rule: a layer may call down, never up. Upward notifications go through PUN RPCs and Unity
 callbacks (`OnPhotonPlayerPropertiesChanged`, health updates through `GameManager.UnitsHealthUpdated`),

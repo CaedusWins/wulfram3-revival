@@ -59,7 +59,7 @@ Run `/architecture-review`. It bootstraps the TR registry from the GDDs and ADRs
 ### 3b. Create control manifest
 Run `/create-control-manifest`
 **Time**: 30 min
-- [x] docs/architecture/control-manifest.md created (from ADR-0001..0005)
+- [x] docs/architecture/control-manifest.md created (from ADR-0001..0005; updated for the ADR-0003 amendments and ADR-0006, version 2026-10-27)
 
 ### 3c. Create sprint tracking file
 Run `/sprint-plan new`. The first sprint is the rest of L1: owner playtest rows 3/4/13/17/18, the three design calls, and the cargo-name fix.
@@ -92,7 +92,7 @@ cargo (what `BlueCargo` deploys).
 ### 4c. L1 as an epic with stories
 `/create-epics` and `/create-stories` from `docs/L1-LOCAL-PLAYABILITY.md`. Its 20 rows are already
 story-shaped; proven rows become done stories that point to their gate evidence in `docs/QA-LOG.md`.
-- [ ] L1 epic + stories
+- [x] Epics and stories (2026-10-27, #53, #56): done per system rather than as one L1 epic (owner's choice: epics need a GDD per system, so the first sprint's five systems got GDDs first). 9 epics, 27 stories; proven L1 rows are Complete stories pointing to their gate evidence
 
 ---
 
