@@ -4,11 +4,19 @@
 > **GDD**: design/gdd/camera-cursor.md
 > **Architecture Module**: `CameraManager`, `CursorVisibilityManager`, `InputMode` (Camera & Cursor, #2)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories camera-cursor`
+> **Stories**: 3 stories (see Stories)
 
 ## Overview
 
 The camera rides the owner's tank in a cockpit or chase view (C swaps), and the input mode switches between driving and UI (Esc). ADR-0006 gives the input mode one owner, `InputMode`; this epic covers that migration and the camera's tuning.
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Overhead camera and cursor at death, restored at respawn](story-001-respawn-camera-and-cursor.md) | Integration | Complete | ADR-0004, ADR-0006 |
+| 002 | [Move the input mode to InputMode](story-002-inputmode-migration.md) | Integration | Ready | ADR-0006 |
+| 003 | [Camera and cursor feel sign-off](story-003-camera-feel-sign-off.md) | Visual/Feel | Ready | ADR-0001, ADR-0006 |
 
 ## Governing ADRs
 

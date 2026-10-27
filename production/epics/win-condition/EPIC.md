@@ -4,11 +4,18 @@
 > **GDD**: design/gdd/win-condition.md
 > **Architecture Module**: `MatchManager`, `RepairPad`, `GameManager.Respawn` (Death & Respawn #12, Repair Pads #17, Win Condition #18)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories win-condition`
+> **Stories**: 2 stories (see Stories)
 
 ## Overview
 
 A team wins by destroying every enemy repair pad and tank; the master decides, everyone sees VICTORY/DEFEAT/DRAW and the arena resets (#33-#36). Built and gated online. Open work: late-join sync (Required ADR #1), master hand-over during a reset (untested), the match line moving to Unity UI (with the HUD epic), tuning, and a match-end sound.
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Result, reset, draw and own-team respawn](story-001-result-reset-draw.md) | Integration | Complete | ADR-0003, ADR-0004 |
+| 002 | [The master leaves during the result countdown](story-002-master-leaves-during-reset.md) | Integration | Ready | ADR-0004 |
 
 ## Governing ADRs
 

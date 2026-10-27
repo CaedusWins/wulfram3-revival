@@ -4,11 +4,19 @@
 > **GDD**: design/gdd/deploy.md
 > **Architecture Module**: `GroundPlacementController`, `GameManager.DeployUnit` / `RequestDeploy` (Deploy, #15)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories deploy`
+> **Stories**: 3 stories (see Stories)
 
 ## Overview
 
 With cargo on board, `,` shows a local preview, the wheel turns it 10° per notch and a click asks the master to build the unit for the deployer's team. The rotation and the living/cursor rules were fixed in #50; open work is the deploy edge cases (aiming at the sky, the hold emptied while previewing), the master-side living check (with the RPC trust ADR) and the rotation step as a tuning value.
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Preview, rotation, refusals and the living/cursor rules](story-001-preview-rotation-refusals.md) | Logic | Complete | ADR-0003, ADR-0006 |
+| 002 | [Preview edge cases — aimed at the sky, hold emptied while previewing](story-002-preview-edge-cases.md) | Logic | Ready | ADR-0003 |
+| 003 | [Mouse-wheel rotation feel sign-off](story-003-wheel-feel-sign-off.md) | Visual/Feel | Ready | ADR-0003 |
 
 ## Governing ADRs
 

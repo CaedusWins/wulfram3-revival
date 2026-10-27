@@ -4,11 +4,20 @@
 > **GDD**: design/gdd/cargo.md
 > **Architecture Module**: `CargoManager`, `Cargo`, `GameManager.RequestPickUpCargo` / `RequestDropCargo` (Cargo, #14)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories cargo`
+> **Stories**: 4 stories (see Stories)
 
 ## Overview
 
 Tanks pick up a box (Q), drop it (Z) and deploy what it holds. Pick-up and drop are master-decided room objects (ADR-0003). Open work: deployed units take the deployer's team whatever the box's colour (TR-cargo-010, review 3 F4), the same-frame double pick-up (F7), the hold's content on the HUD (TR-cargo-007), and the pick-up radius as a tuning value.
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Pick up, drop and box contents](story-001-pickup-drop-contents.md) | Integration | Complete | ADR-0003 |
+| 002 | [A deployed unit fights for the deployer, whatever the box's colour](story-002-deployer-team.md) | Logic | Ready | ADR-0003 |
+| 003 | [One box, one tank: guard the same-frame double pick-up](story-003-double-pickup-guard.md) | Logic | Ready | ADR-0003 |
+| 004 | [Show the hold's content on the HUD](story-004-hold-display.md) | UI | Ready | ADR-0006 |
 
 ## Governing ADRs
 

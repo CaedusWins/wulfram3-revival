@@ -47,7 +47,7 @@ step 4a).
 | 22 | Audio (cannon, pickup/drop, UI clicks) | Audio | MVP | Implemented (manual, row 18); own engine loops (fixed 2026-10-27) | [audio.md](audio.md) | — |
 | 23 | Chat (Photon Chat UI) | Meta | Alpha | Off (needs its own Photon Chat app) | — | Networking |
 | 24 | Scouts (`BlueScout`/`RedScout` prefabs, repair beam) | Gameplay | Alpha | Prefabs exist; nothing spawns them | — | Team & Vehicle Selection |
-| 25 | Minimap / Big Map (inferred) | UI | Alpha | Not Started | — | Teams |
+| 25 | Minimap / Big Map (inferred) | UI | Alpha | A minimap exists (the KGF map system on the HUD, seen in the `pr2-gate` screenshots, 2026-10-27; not yet documented); no Big Map | — | Teams |
 | 26 | Economy: SupplyShips, SkyPumps, PowerCells, UpLink | Economy | Full Vision | Not Started (deferred to M4; PowerCell prefab only, UpLink a stub) | — | Cargo, Deploy, Teams |
 
 ---

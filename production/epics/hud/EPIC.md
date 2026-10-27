@@ -4,11 +4,20 @@
 > **GDD**: design/gdd/hud.md
 > **Architecture Module**: `HUDCanvas` scripts (`GUIManager`, `StatusBarController`, `TeamCounter`, `TargetInfoController`), `PlayerInfoController`, `MatchManager.OnGUI` (HUD, #20)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories hud`
+> **Stories**: 4 stories (see Stories)
 
 ## Overview
 
 The overlay: hull and fuel bars, team counts, ping/FPS, the target panel, name tags, the match line and the Leave button (fixed in #50). ADR-0006 sets Unity UI for HUD elements. Open work: the HUD rework (the match line to Unity UI, no overlap, "1 pad"), the target panel that never returns (L1 row 9), status line 2, and the hold display (with Cargo).
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Leave Game button shows with the cursor](story-001-leave-button.md) | UI | Complete | ADR-0002, ADR-0006 |
+| 002 | [HUD rework — match line in Unity UI, no overlap, words agree with numbers](story-002-hud-rework.md) | UI | Ready | ADR-0006 |
+| 003 | [The target panel comes back after its target leaves the screen](story-003-target-panel-returns.md) | UI | Ready | ADR-0006 |
+| 004 | [HUD sign-off](story-004-hud-sign-off.md) | UI | Ready | ADR-0006 |
 
 ## Governing ADRs
 

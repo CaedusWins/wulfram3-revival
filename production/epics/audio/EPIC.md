@@ -4,11 +4,18 @@
 > **GDD**: design/gdd/audio.md
 > **Architecture Module**: the `AudioSource` cues in `PlayerMovementManager`, `AutoCannon`, `CargoManager`, the shell and explosion prefabs (Audio, #22)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories audio`
+> **Stories**: 2 stories (see Stories)
 
 ## Overview
 
 Every sound is a classic Wulfram clip played by the script or prefab that owns the event. The owner's engine now loops (#50). Open work: other players' engine sound (needs the landed state synced, Required ADR #6), sounds that don't exist yet (self-destruct, turrets, match end, taking a hit), and evidence beyond the playtest.
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [The owner's engine sound loops](story-001-own-engine-loops.md) | Logic | Complete | ADR-0001 |
+| 002 | [Audio sign-off](story-002-audio-sign-off.md) | Visual/Feel | Ready | ADR-0001, ADR-0003 |
 
 ## Governing ADRs
 
