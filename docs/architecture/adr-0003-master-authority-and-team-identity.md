@@ -59,8 +59,14 @@ the gameplay test, 2026-10-20).
 ## Decision
 - Damage goes through `HitPointsManager.TellServerTakeDamage` → `TakeDamage` RPC to the master, which
   clamps and broadcasts `UpdateHealth` to all. Healing on respawn goes through `TellServerHealth`.
-- The master destroys non-player units at 0 health (`GameManager.UnitsHealthUpdated`) and spawns shells
-  and explosions.
+- The master destroys non-player units at 0 health (`GameManager.UnitsHealthUpdated`) and spawns flak
+  shells and unit death explosions. *Amended 2026-10-27 (architecture review 4, G3):* a tank's pulse shell
+  is spawned by its owner (`PhotonNetwork.Instantiate`), whose client detects the hit, requests the damage
+  through `TellServerTakeDamage` and spawns the impact explosion. Trusting that client's hit detection is a
+  question for the RPC trust model (Required ADR #2).
+- *Amended 2026-10-27 (architecture review 4, G2):* **a tank's movement is owner-authoritative**: only its
+  owner reads input and simulates its rigidbody; other clients keep it kinematic and show the pose its
+  PhotonView syncs. The RPC trust model (Required ADR #2) will bound it (speed, teleport).
 - **Deployed units belong to the room** (amended 2026-10-26, architecture review C1): a deploy is a
   request to the master (`GameManager.DeployUnit` -> `RequestDeploy`), which creates the unit with
   `PhotonNetwork.InstantiateSceneObject`, the deployer's team as instantiation data. PUN only lets an
@@ -72,6 +78,10 @@ the gameplay test, 2026-10-20).
   refuses a tank that isn't the sender's, an empty hold, a missing prefab, or a match that has ended;
   it deploys the cargo actually on board with the tank's team and empties the hold. Dropped cargo is a
   room object too (N3). The placement preview is a local, look-only picture with no network identity (N2).
+  *Amended 2026-10-27 (architecture review 3, F4; owner's call):* "with the tank's team" holds for every
+  deployed unit, whatever the box's colour: a `Red*`/`Blue*` prefab deployed by the other team fights for the
+  deployer, and a turret targets the team that is not its own. The code applied the team only to prefabs
+  with no team of their own (`Unit.Awake`); bringing it in line is a story.
 - Teams are compared only with `Unit.SameTeam(a, b)`; `Unit.NormalizeTeam` ignores case, spaces and a
   trailing "team". A unit with no team (`""`) belongs to no one.
 

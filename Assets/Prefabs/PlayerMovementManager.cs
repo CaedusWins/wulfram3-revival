@@ -67,6 +67,13 @@ namespace Com.Wulfram3 {
 
             originalRotation = transform.localRotation;
 
+            // The engine hums while the owner flies (design/gdd/audio.md): the prefab's source doesn't
+            // loop. Only the owner's: other clients don't learn when a tank lands, so theirs would never stop.
+            AudioSource engine = GetComponent<AudioSource>();
+            if (engine != null) {
+                engine.loop = true;
+            }
+
         }
 
         private void Awake() {

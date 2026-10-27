@@ -77,8 +77,8 @@ Covered by 2c.
 `/design-system retrofit design/gdd/<system>.md` for each system in the index. Write the ones
 with open design questions first: self-destruct (friendly fire), turrets/flak (one-shot splash),
 cargo (what `BlueCargo` deploys).
-- [ ] GDDs for the systems with open design calls
-- [ ] GDDs for the remaining systems
+- [x] GDDs for the systems with open design calls (self-destruct, turrets, cargo: #42, approved 2026-10-26)
+- [ ] GDDs for the remaining systems: the first sprint's five done 2026-10-27 (hover-movement, camera-cursor, deploy, hud, audio; owner's choice to retrofit only what the sprint touches); the rest as work reaches them
 
 ### 4b. ADRs for decisions already made
 `/architecture-decision retrofit` for each decision recorded in `CLAUDE.md`:

@@ -13,7 +13,10 @@ public class GroundPlacementController : Photon.PunBehaviour
 
     public GameObject currentPlaceableObject;
 
+    // Wheel notches the current preview has been turned by (design/gdd/deploy.md rule 2).
     public float mouseWheelRotation;
+
+    public float degreesPerNotch = 10f;
 
     public GameObject placeObject;
 
@@ -43,10 +46,28 @@ public class GroundPlacementController : Photon.PunBehaviour
         return ownerView != null && ownerView.isMine;
     }
 
+    // Only a living tank deploys (design/gdd/deploy.md rule 6). The master doesn't check it: offline
+    // tests deploy from a dead tank standing in for a teammate; a master-side check belongs to the
+    // RPC trust model (docs/architecture/architecture.md, Required ADR #2).
+    private bool IsDead()
+    {
+        PlayerMovementManager movement = GetComponentInParent<PlayerMovementManager>();
+        return movement != null && movement.isDead;
+    }
+
     public void Update()
     {
         if (!IsMine())
         {
+            return;
+        }
+        if (IsDead())
+        {
+            if (currentPlaceableObject != null)
+            {
+                Destroy(currentPlaceableObject);
+                currentPlaceableObject = null;
+            }
             return;
         }
         HandleNewObjectHotkey();
@@ -77,10 +98,12 @@ public class GroundPlacementController : Photon.PunBehaviour
             if (currentPlaceableObject != null)
             {
                 Destroy(currentPlaceableObject);
+                currentPlaceableObject = null;
             }
-            else
+            else if (!IsDead())
             {
                 currentPlaceableObject = MakePreview(baseUnit);
+                mouseWheelRotation = 0f;
             }
         }
     }
@@ -137,11 +160,26 @@ public class GroundPlacementController : Photon.PunBehaviour
 
     }
 
+    // The 2018 code turned the preview by the running total of notches every frame, so it kept spinning.
     public void RotateFromMouseWheel()
     {
-        Debug.Log(Input.mouseScrollDelta);
-        mouseWheelRotation += Input.mouseScrollDelta.y;
-        currentPlaceableObject.transform.Rotate(Vector3.up, mouseWheelRotation * 10f);
+        float notches = Input.mouseScrollDelta.y;
+        if (notches != 0f)
+        {
+            RotateNotches(notches);
+        }
+    }
+
+    // Turns the preview degreesPerNotch per wheel notch, once. Public so the L1 gameplay smoke test can
+    // turn the wheel (Unity 2017 can't fake input); players reach it only through RotateFromMouseWheel.
+    public void RotateNotches(float notches)
+    {
+        if (currentPlaceableObject == null)
+        {
+            return;
+        }
+        mouseWheelRotation += notches;
+        currentPlaceableObject.transform.Rotate(Vector3.up, notches * degreesPerNotch);
     }
 
     public void ChangeMaterial(Material newMat)
@@ -172,7 +210,8 @@ public class GroundPlacementController : Photon.PunBehaviour
     // input); players reach it only through ReleaseIfClicked, which Update calls while a preview shows.
     public void Release()
     {
-        if (currentPlaceableObject == null || !IsMine())
+        // With the cursor shown a click is a UI click; a dead tank deploys nothing (deploy.md rule 6).
+        if (currentPlaceableObject == null || !IsMine() || Cursor.visible || IsDead())
         {
             return;
         }

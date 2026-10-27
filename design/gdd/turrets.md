@@ -2,7 +2,7 @@
 
 > **Status**: Approved (owner, 2026-10-26)
 > **Author**: owner + Claude (retrofit of the 2018 `FlakTurretManager` / `GTManager`; flak balance call by the owner, 2026-10-26)
-> **Last Updated**: 2026-10-26
+> **Last Updated**: 2026-10-27
 > **Last Verified**: 2026-10-26
 > **Implements Pillar**: Strategy over kills; Teamwork wins
 
@@ -32,6 +32,8 @@ destroy it. Turrets reward the team that built them without deciding fights alon
 
 1. **Targets.** A turret targets tanks (tag `Player`) whose team is its `teamDetect`, compared with
    `Unit.SameTeam` (ADR-0003). It ignores its own team.
+   A deployed turret belongs to the deploying tank's team, whatever the box's colour, and targets the
+   other team (owner, 2026-10-27, architecture review 3 F4).
 2. **Flak turret** (`FlakTurretManager`): scans every `scanInterval` within `scanRadius`, turns at
    `turnSpeed`, and fires a flak shell every `reloadTime` while the target is in sight. Shells are spawned by
    the master (`GameManager.SpawnFlakShell`).
@@ -107,13 +109,20 @@ None new.
 
 ## Acceptance Criteria
 
-1. A full-health tank hit once by a flak shell is alive with 30–60 health (gate 6e `turret`; today it dies).
+1. A full-health tank hit once by a flak shell is alive with 30–60 health (gate 6e `turret`).
 2. A second hit kills it.
 3. No splash ever exceeds `splashCap` (logged by the test).
 4. Turrets never target their own team (gate 6e `teams`, `turret`).
 
 ## Known Issues
 
+- **The gun turret's code doesn't match this design yet** (architecture review 3, F2; the owner chose this
+  GDD as the design, 2026-10-27): `GTManager` damages once per `reloadTime` instead of `bulletsPerSecond`,
+  reaches `scanRadius` with a hard-coded 24.14 m cut-off instead of `range` (unused), throws on non-master
+  clients (`ShowFeedback` reads a target only the master sets) and after a missed raycast. No gate phase has
+  run a gun turret yet. Fix and gate phase: a story.
+- **A deployed turret keeps its box's colour today** (`Unit.Awake`; review 3, F4): the rule above is the
+  design; the code change is a story.
 - **Splash damage online:** `ExplosionPhysicsForce` only damages bodies the master controls, so online the
   splash hits only the master's own tank. Fixing it is required ADR #5 in `docs/architecture/architecture.md`.
 

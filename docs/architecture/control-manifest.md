@@ -1,9 +1,9 @@
 # Control Manifest
 
 > **Engine**: Unity 2017.3.0f3 (C# 4, Mono), PUN Classic 1.88
-> **Last Updated**: 2026-10-26
-> **Manifest Version**: 2026-10-26
-> **ADRs Covered**: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005
+> **Last Updated**: 2026-10-27
+> **Manifest Version**: 2026-10-27
+> **ADRs Covered**: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006
 > **Status**: Active — regenerate with `/create-control-manifest update` when ADRs change
 
 `Manifest Version` is the date this manifest was generated. Stories embed it when
@@ -58,17 +58,19 @@ read its ADR.
 ### Required Patterns
 
 - **Change health only through `HitPointsManager.TellServerTakeDamage` / `TellServerHealth`; the master clamps it and broadcasts `UpdateHealth` to all** — source: ADR-0003
-- **Only the master destroys shared units at 0 health and spawns shells and explosions (`GameManager.UnitsHealthUpdated`)** — source: ADR-0003
+- **Only the master destroys shared units at 0 health and spawns flak shells and unit death explosions (`GameManager.UnitsHealthUpdated`); a tank's pulse shell and its impact explosion are spawned by the tank's owner (amended 2026-10-27)** — source: ADR-0003
+- **Movement is owner-authoritative: only a tank's owner reads input and simulates its rigidbody; other clients keep it kinematic (amended 2026-10-27)** — source: ADR-0003
 - **Only the master decides shared outcomes** — source: ADR-0003
 - **Compare teams only with `Unit.SameTeam(a, b)`, or compare values that came out of `Unit.NormalizeTeam`; a unit with team `""` belongs to no one** — source: ADR-0003
-- **A deploy is a request to the master: `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID; the master refuses a tank that isn't the sender's, an empty hold, a missing prefab or a match that has ended, deploys the cargo actually on board with the tank's team, and empties the hold** — source: ADR-0003
+- **A deploy is a request to the master: `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID; the master refuses a tank that isn't the sender's, an empty hold, a missing prefab or a match that has ended, deploys the cargo actually on board with the tank's team (every deployed unit, whatever the box's colour; amended 2026-10-27), and empties the hold** — source: ADR-0003
 - **The placement preview is a local, look-only picture with no network identity** — source: ADR-0003
+- **Read the input mode only through `InputMode.Driving`, and change it only through `InputMode.SetUI` / `InputMode.Toggle` (Esc and the respawn flow); never write `Cursor.visible` or `Cursor.lockState` elsewhere (the gameplay test excepted)** — source: ADR-0006
 
 ### Forbidden Approaches
 
 - **Never assign `health` directly or call `TakeDamage` locally** — clients would disagree about a unit's state — source: ADR-0003
 - **Never compare raw team strings with `==`, `Equals` or `ToLower()`** — the 2018 data spells teams "blue", "Blue", "BlueTeam" — source: ADR-0003
-- **Never create a unit other players can damage or use with `PhotonNetwork.Instantiate` on a player's client** — PUN lets only the owner destroy it and deletes a leaving player's objects — source: ADR-0003
+- **Never move another client's tank; never create a unit other players can damage or use with `PhotonNetwork.Instantiate` on a player's client** — PUN lets only the owner destroy it and deletes a leaving player's objects — source: ADR-0003
 - **Never make health owner-authoritative** — scene units have no live owner; two writers per unit — source: ADR-0003
 - **Never bulk-rewrite team spellings in binary prefabs or scenes; normalize in code** — source: ADR-0003
 
@@ -103,7 +105,16 @@ read its ADR.
 
 *Applies to: rendering, audio, UI, VFX*
 
-No Accepted ADR governs this layer yet (architecture review gaps TR-game-concept-010 and TR-win-condition-014/016). The match HUD is a placeholder `OnGUI` overlay (ADR-0004).
+### Required Patterns
+
+- **HUD elements are Unity UI on the `HUDCanvas` (created in code under it where the binary scene would otherwise need editing)** — source: ADR-0006
+- **Clickable HUD panels show only in UI mode (`GUIManager`)** — source: ADR-0006
+
+### Forbidden Approaches
+
+- **Never add HUD elements with `OnGUI`; it is for test and debug overlays only** — `MatchManager.OnGUI` is the one accepted exception until the HUD rework — source: ADR-0006
+
+Audio (TR-win-condition-016, TR-audio-*) has no Accepted ADR yet.
 
 ---
 
