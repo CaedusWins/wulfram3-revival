@@ -891,6 +891,7 @@ namespace Wulfram.SmokeTest
                 }
             }
 
+            Vector3 victimPos = victim.transform.position;
             destruct.Trigger();
             float armed = Time.realtimeSinceStartup;
             float until = armed + 20f;
@@ -905,6 +906,13 @@ namespace Wulfram.SmokeTest
                 "blast " + blastAfter.ToString("0.0") + " s after arming, tank isDead=" + movement.isDead +
                 "; enemy turret " + distance.ToString("0.0") + " m away (radius " + destruct.sphereRadius + "): " +
                 (victim == null ? "destroyed" : "health " + victimBefore + " -> " + (victimHp == null ? "?" : victimHp.health.ToString())));
+            // The blast itself must not touch a friendly unit. When it destroys the enemy turret, the
+            // master spawns that turret's death explosion, whose splash (ExplosionPhysicsForce,
+            // min(splashCap, 3 x force / distance)) hits every unit near it, friend or foe: that loss,
+            // computed from each unit's distance to the turret, is allowed - and nothing more.
+            Com.Wulfram3.GameManager gm = FindObjectOfType<Com.Wulfram3.GameManager>();
+            UnityStandardAssets.Effects.ExplosionPhysicsForce boom = gm == null || gm.explosionPrefab == null ? null :
+                gm.explosionPrefab.GetComponent<UnityStandardAssets.Effects.ExplosionPhysicsForce>();
             int friendlyInRange = 0;
             bool friendsUnhurt = true;
             string friends = "";
@@ -915,8 +923,15 @@ namespace Wulfram.SmokeTest
                 if (nearbyFriendly[i])
                 {
                     friendlyInRange++;
-                    friendsUnhurt = friendsUnhurt && nearby[i] != null && nearby[i].health >= nearbyBefore[i];
-                    friends += (friends.Length > 0 ? ", " : "") + nearbyNames[i] + " " + nearbyBefore[i] + " -> " + after;
+                    int chainSplash = 0;
+                    if (victim == null && boom != null && nearby[i] != null)
+                    {
+                        float d = Vector3.Distance(nearby[i].transform.position, victimPos);
+                        chainSplash = (int)Mathf.Min(boom.splashCap, boom.explosionForce * 3f / Mathf.Max(d, 0.001f));
+                    }
+                    friendsUnhurt = friendsUnhurt && nearby[i] != null && nearbyBefore[i] - nearby[i].health <= chainSplash;
+                    friends += (friends.Length > 0 ? ", " : "") + nearbyNames[i] + " " + nearbyBefore[i] + " -> " + after +
+                        " (allowed: the destroyed turret's splash " + chainSplash + ")";
                 }
             }
             // The tank respawned on its own pad, so at least that pad is in range.

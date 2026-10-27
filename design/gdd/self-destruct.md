@@ -73,6 +73,7 @@ With the defaults (1000, 10 m), a unit 4 m away takes 600 and one 9 m away takes
 4. **Armed, then killed before the blast:** current behaviour, the blast still fires when the effect ends.
    Kept for now (see Open Questions).
 5. **Armed after the match ended:** the master ignores all damage until the reset.
+6. **An enemy unit the blast destroys explodes:** its death explosion (Explosions & Splash #10) splashes every unit near it, friend or foe, capped at 30 (`design/gdd/turrets.md`). That is the unit's explosion, not the self-destruct blast: a friendly pad 2-5 m from a destroyed turret loses a few points (gate 6e `self-destruct-friendly` allows exactly that splash).
 
 ## Dependencies
 
