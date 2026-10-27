@@ -87,7 +87,7 @@ cargo (what `BlueCargo` deploys).
 - [x] Local first: L1 before more online work — in ADR-0005 (an ordering rule, not architecture)
 - [x] Branch model and merge policy (merge commits, fresh-clone gate, protected dev/master) — ADR-0005 (Accepted)
 - [x] Team comparison through `Unit.SameTeam`; damage only through the master (`TellServerTakeDamage`) — ADR-0003 (Accepted)
-- [ ] Added: match flow (as built in #33) — ADR-0004 (Proposed until the online match-end test passes)
+- [x] Added: match flow (as built in #33, C1 fix #36) — ADR-0004 (Accepted 2026-10-26)
 
 ### 4c. L1 as an epic with stories
 `/create-epics` and `/create-stories` from `docs/L1-LOCAL-PLAYABILITY.md`. Its 20 rows are already

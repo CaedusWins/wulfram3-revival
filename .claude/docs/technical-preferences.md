@@ -73,8 +73,8 @@
 <!-- Quick reference linking to full ADRs in docs/architecture/ -->
 - [ADR-0001](../../docs/architecture/adr-0001-engine-pin-unity-2017-3.md) — Unity 2017.3 / C# 4 engine pin (Accepted)
 - [ADR-0002](../../docs/architecture/adr-0002-pun-classic-photon-cloud.md) — PUN Classic 1.88 on Photon Cloud, App ID out of git (Accepted)
-- [ADR-0003](../../docs/architecture/adr-0003-master-authority-and-team-identity.md) — master-decided outcomes, `Unit.SameTeam` (Accepted; amendment pending for C1)
-- [ADR-0004](../../docs/architecture/adr-0004-match-flow-matchmanager.md) — match flow, MatchManager (Proposed)
+- [ADR-0003](../../docs/architecture/adr-0003-master-authority-and-team-identity.md) — master-decided outcomes, `Unit.SameTeam`, room-owned deployables (Accepted; amended for C1)
+- [ADR-0004](../../docs/architecture/adr-0004-match-flow-matchmanager.md) — match flow, MatchManager (Accepted)
 - [ADR-0005](../../docs/architecture/adr-0005-verification-gate-and-branch-model.md) — verification gate, branch model, local first (Accepted)
 
 ## Engine Specialists
