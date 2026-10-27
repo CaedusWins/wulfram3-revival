@@ -54,12 +54,12 @@ None. The one blocker, an unconfigured engine whose reference pointed at Unity 6
 ### 3a. Register existing requirements (creates tr-registry.yaml)
 Run `/architecture-review`. It bootstraps the TR registry from the GDDs and ADRs (after Steps 2 and 4b).
 **Time**: 1 session
-- [ ] tr-registry.yaml created
+- [x] tr-registry.yaml created (28 TR-IDs; architecture reviews #1 FAIL → fixed, #2 CONCERNS with no blockers)
 
 ### 3b. Create control manifest
 Run `/create-control-manifest`
 **Time**: 30 min
-- [ ] docs/architecture/control-manifest.md created
+- [x] docs/architecture/control-manifest.md created (from ADR-0001..0005)
 
 ### 3c. Create sprint tracking file
 Run `/sprint-plan new`. The first sprint is the rest of L1: owner playtest rows 3/4/13/17/18, the three design calls, and the cargo-name fix.
