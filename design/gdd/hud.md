@@ -43,6 +43,7 @@ you are aiming at.
 | 10 | Result banner | VICTORY / DEFEAT / DRAW and the reset countdown | while Ended |
 | 11 | Leave Game button | leaves the room for the launcher | **shown only while the cursor is visible** (`GUIManager`) |
 | 12 | Frame art | the HUD frame images | static |
+| 13 | Name tags | each other player's name over their tank, in team colour (master marked) | while the tank is on screen (`PlayerInfoController` on the tank prefabs, `PlayerInfoPanelController`) |
 
 Rules:
 
@@ -128,7 +129,9 @@ This document is the UI requirement.
 - **Status line 2 is a placeholder** ("Server:1 | Sector:*Map Name*").
 - **The match line overlaps the status bar** and says "1 pads".
 - **The hold's content isn't shown** (TR-cargo-007).
-- **There is no player list** (L1 row 17 named one; `playerInfoPanelPrefab` is never used).
+- **There is no player list** (L1 row 17 named one); the name tags (element 13) are the only per-player
+  display. They compute the player's health but don't show it. (Corrected 2026-10-27 after architecture
+  review 4, G9: an earlier draft said `playerInfoPanelPrefab` was unused.)
 - `PingCounter` (an `OnGUI` ping label) exists in the code but is in no scene.
 
 ## Open Questions

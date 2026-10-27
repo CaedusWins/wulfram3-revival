@@ -37,7 +37,7 @@
 #   its fields sit two columns past the dash. Quote a value that holds ": ". A
 #   line in any other shape is reported as unsupported layout, with its number.
 
-version: 3
+version: 4
 last_updated: "2026-10-27"
 
 requirements:
@@ -481,6 +481,232 @@ requirements:
   system: cargo
   gdd: design/gdd/cargo.md
   requirement: "Any tank can carry any box; a deployed unit always takes the deploying tank's team, whatever the box's colour, and a deployed turret targets the other team."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+# --- hover-movement.md (system slug: hover-movement) --- added 2026-10-27, architecture review 4
+
+- id: TR-hover-movement-001
+  system: hover-movement
+  gdd: design/gdd/hover-movement.md
+  requirement: "Movement is owner-authoritative: only the owning client reads the tank's input and simulates its rigidbody; every other client keeps the tank kinematic and shows the pose PUN's view sync delivers."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hover-movement-002
+  system: hover-movement
+  gdd: design/gdd/hover-movement.md
+  requirement: "Hover, drive, jump, landing and take-off run on the owner's client as rigidbody forces in the physics step, using a downward ray against the TerrainCollider only (reach 2 x height; units, pads and boxes are not ground); landing makes the body kinematic, snapped to the slope, and take-off makes it simulated again."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hover-movement-003
+  system: hover-movement
+  gdd: design/gdd/hover-movement.md
+  requirement: "The tank takes movement input (drive, mouse look, hover height, jump) only while it is the owner's living tank and the cursor is hidden (input mode: TR-camera-cursor-002), with no mouse look while landed; a dead tank starts the respawn flow destroyDelayWhenDead after death."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hover-movement-004
+  system: hover-movement
+  gdd: design/gdd/hover-movement.md
+  requirement: "Driving, aiming and hover-height changes do not depend on the frame rate (the hover height changes per second, not per rendered frame)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hover-movement-005
+  system: hover-movement
+  gdd: design/gdd/hover-movement.md
+  requirement: "sensitivityX/Y (0.5-5), the pitch limits (30-89 degrees each way), fuelPerJump (0-100), timeBetweenJumps (0.5-10 s) and destroyDelayWhenDead (1-10 s) are tunable within their documented ranges."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hover-movement-006
+  system: hover-movement
+  gdd: design/gdd/hover-movement.md
+  requirement: "The gameplay gate (6e cargo drive-onto-box, respawn) verifies acceptance criteria 2 and 5; criteria 1, 3 and 4 are verified by the manual playtest (A1, A2)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+# --- camera-cursor.md (system slug: camera-cursor) --- added 2026-10-27, architecture review 4
+
+- id: TR-camera-cursor-001
+  system: camera-cursor
+  gdd: design/gdd/camera-cursor.md
+  requirement: "Only the local player's tank drives the scene's main camera: it is parented to that tank at start in the cockpit position, and C swaps the cockpit and chase positions over transitionTime only while the cursor is hidden."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-camera-cursor-002
+  system: camera-cursor
+  gdd: design/gdd/camera-cursor.md
+  requirement: "One input mode for the local player: cursor hidden and locked means driving and fighting, cursor visible and free means UI; Esc toggles it, a left click re-applies the lock, the death and respawn flow sets it, and every gameplay input (drive, look, fire, jump, deploy, camera swap) and the clickable UI follow it."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-camera-cursor-003
+  system: camera-cursor
+  gdd: design/gdd/camera-cursor.md
+  requirement: "When the respawn flow starts, the overhead map camera replaces the tank camera with the cursor shown; respawn restores the tank camera and hides the cursor."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-camera-cursor-004
+  system: camera-cursor
+  gdd: design/gdd/camera-cursor.md
+  requirement: "transitionTime (0.1-2 s) is tunable within its documented range, and the cockpit and chase positions are tunable values."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-camera-cursor-005
+  system: camera-cursor
+  gdd: design/gdd/camera-cursor.md
+  requirement: "The gameplay gate (6e respawn) verifies acceptance criterion 4; criteria 1-3 are verified by the manual playtest (A3, A4)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+# --- deploy.md (system slug: deploy) --- added 2026-10-27, architecture review 4
+
+- id: TR-deploy-001
+  system: deploy
+  gdd: design/gdd/deploy.md
+  requirement: "With cargo on board, the deploy key shows a local preview of the carried unit (Resources/<content>; nothing for a content with no prefab) at the tank's deploy point, following the tank and facing the tank's facing when shown plus the wheel turns; the key again removes it and the hold keeps its cargo (preview identity: TR-cargo-005)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-deploy-002
+  system: deploy
+  gdd: design/gdd/deploy.md
+  requirement: "Each mouse-wheel notch turns the preview exactly 10 degrees about the vertical, it holds still between notches, a new preview starts unrotated, and the deploy request carries the preview's position and rotation (master checks: TR-cargo-004; team: TR-cargo-010)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-deploy-003
+  system: deploy
+  gdd: design/gdd/deploy.md
+  requirement: "Only the owner's living tank with the cursor hidden deploys: a click with the cursor visible is a UI click and deploys nothing, and a dead tank's preview is removed and its click deploys nothing."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-deploy-004
+  system: deploy
+  gdd: design/gdd/deploy.md
+  requirement: "The rotation step (5-45 degrees per notch) is tunable within its documented range."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-deploy-005
+  system: deploy
+  gdd: design/gdd/deploy.md
+  requirement: "The gameplay gate (6e deploy, deploy-team, deploy-refused; 6c match) verifies acceptance criteria 1-3; gate checks for criteria 4 and 5 come with the rotation and living/cursor fixes."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+# --- hud.md (system slug: hud) --- added 2026-10-27, architecture review 4
+
+- id: TR-hud-001
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "The HUD shows the local player's own tank only: a hull bar (health / max health) and a fuel bar (fuel / max fuel), updated when either changes, the hull bar empty while dead."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hud-002
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "The HUD shows each team's player count, updated on join, leave and team change, and correct offline (1 for your team, 0 for the other)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hud-003
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "The HUD shows ping and FPS, refreshed about every 0.6 s."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hud-004
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "The HUD shows the current target's name, type, health, distance and team when the target changes, and recovers when the target leaves and re-enters the screen."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hud-005
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "The Leave Game button shows only while the cursor is visible (including while dead on the overhead map), and clicking it leaves the room and returns to the launcher."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hud-006
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "HUD text and layout: counts read with the correct singular or plural, no element overlaps another, the crosshair marks the screen centre, nothing hides the battlefield's centre, and team colours are red and blue (team-colour readability: TR-game-concept-010; match line and banner: TR-win-condition-014; hold: TR-cargo-007)."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-hud-007
+  system: hud
+  gdd: design/gdd/hud.md
+  requirement: "Acceptance criteria 1-3, 5 and 6 are verified by the manual playtest (A14, A17) and criterion 4 by gates 6e win and 6c match; gate checks for criteria 5 and 6 come with their fixes."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+# --- audio.md (system slug: audio) --- added 2026-10-27, architecture review 4
+
+- id: TR-audio-001
+  system: audio
+  gdd: design/gdd/audio.md
+  requirement: "Combat cues (engine, cannon shot per tracer, shell spawn, explosion) play as 3D sounds on every client in range, driven by networked objects or synced state, not by the owner's client alone."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-audio-002
+  system: audio
+  gdd: design/gdd/audio.md
+  requirement: "Local feedback cues play for the owner only: jump, take-off, landing, cargo pick-up and drop (when the hold's content changes), the cannon hit (for the shooter), and the launcher click."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-audio-003
+  system: audio
+  gdd: design/gdd/audio.md
+  requirement: "The engine sound plays continuously while the tank hovers and stops while it is landed, on every client that hears the tank."
+  created: 2026-10-27
+  revised: ""
+  status: active
+
+- id: TR-audio-004
+  system: audio
+  gdd: design/gdd/audio.md
+  requirement: "Acceptance criteria 1-3 are verified by the manual playtest (A2, A16, B2)."
   created: 2026-10-27
   revised: ""
   status: active

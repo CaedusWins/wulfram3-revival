@@ -1,14 +1,15 @@
 # Architecture Traceability Index
-Last Updated: 2026-10-27 (architecture review 3)
+Last Updated: 2026-10-27 (architecture review 4)
 Engine: Unity 2017.3.0f3
 
 ## Coverage Summary
-- Total requirements: 54 (review 2: 28; +25 new in review 3: self-destruct 7, turrets 9, cargo 9; +1 when it was applied: TR-cargo-010)
-- Covered: 36 (67%) by Accepted ADRs
-- Partial: 10
-- Gaps: 8
+- Total requirements: 81 (review 3 as applied: 54; +27 new in review 4: hover-movement 6, camera-cursor 5, deploy 5, hud 7, audio 4)
+- Covered: 46 (57%) by Accepted ADRs
+- Partial: 16
+- Gaps: 19
 - "Covered" means an Accepted ADR decides the requirement's architecture. Rows marked "(code: F-n)" have a code
-  finding in `docs/architecture/architecture-review-2026-10-27.md`; code conformance is not ADR coverage.
+  finding in `docs/architecture/architecture-review-2026-10-27.md`, rows marked "(G-n)" one in
+  `docs/architecture/architecture-review-2026-10-27-2.md`; code conformance is not ADR coverage.
 
 ## Full Matrix
 | TR-ID | GDD | Requirement | ADR | Status |
@@ -67,24 +68,59 @@ Engine: Unity 2017.3.0f3
 | TR-cargo-008 | cargo.md | Pick-up radius tunable 2-10 m | — (hard-coded 5 m) | ❌ Gap |
 | TR-cargo-009 | cargo.md | Gate 6e verifies AC 1-3 | ADR-0005 | ✅ |
 | TR-cargo-010 | cargo.md | Deployed unit takes the deployer's team, whatever the box colour | ADR-0003 (amended 2026-10-27; code: F4, a story) | ✅ |
+| TR-hover-movement-001 | hover-movement.md | Owner-authoritative movement; others kinematic via PUN view sync | ADR-0003 (amended 2026-10-27: owner-authoritative movement), ADR-0002 (view sync) | ✅ Covered |
+| TR-hover-movement-002 | hover-movement.md | Rigidbody hover/drive/jump/land in the physics step; terrain-only ray | ADR-0001 (PhysX, `UnityEngine.Input`; local only) | ✅ |
+| TR-hover-movement-003 | hover-movement.md | Input only for the owner's living tank with the cursor hidden; death timer | ADR-0004 (respawn flow); input mode undecided (TR-camera-cursor-002, G1) | ⚠️ Partial |
+| TR-hover-movement-004 | hover-movement.md | Frame-rate independence | — (code: hover height per frame) | ❌ Gap |
+| TR-hover-movement-005 | hover-movement.md | Five tuning knobs | — | ❌ Gap |
+| TR-hover-movement-006 | hover-movement.md | Gate 6e (AC2, AC5) + playtest (AC1, 3, 4) | ADR-0005 (AC2 gate evidence weak, G10) | ✅ |
+| TR-camera-cursor-001 | camera-cursor.md | Main camera driven only by the local tank; cockpit/chase swap | ADR-0001, ADR-0002 (`isMine`); local presentation | ✅ |
+| TR-camera-cursor-002 | camera-cursor.md | One input mode (hidden = drive, visible = UI) followed by all gameplay input and the clickable UI | — (G1) | ❌ Gap |
+| TR-camera-cursor-003 | camera-cursor.md | Overhead camera + cursor at the respawn flow; restored at respawn | ADR-0004 (respawn flow only; G7 timing) | ⚠️ Partial |
+| TR-camera-cursor-004 | camera-cursor.md | `transitionTime`, positions tunable | — | ❌ Gap |
+| TR-camera-cursor-005 | camera-cursor.md | Gate 6e respawn (AC4) + playtest A3/A4 | ADR-0005 | ✅ |
+| TR-deploy-001 | deploy.md | Local preview at the deploy point, follows the tank; cancel keeps cargo | ADR-0003 (N2 preview) (G5a) | ✅ |
+| TR-deploy-002 | deploy.md | 10° per wheel notch, still between notches; request carries rotation | ADR-0003 (`DeployUnit(…, position, rotation)`) (code: spun; fixed in #50, gate 6e `deploy-rotate`) | ✅ |
+| TR-deploy-003 | deploy.md | No deploy with the cursor visible or from a dead tank | ADR-0003 check list lacks a living check (G4; client check fixed in #50, master check deferred to Required ADR #2); cursor via TR-camera-cursor-002 | ⚠️ Partial |
+| TR-deploy-004 | deploy.md | Rotation step 5-45° tunable | — | ❌ Gap |
+| TR-deploy-005 | deploy.md | Gate 6e deploy, deploy-team, deploy-refused, 6c match; AC4/5 checks with the fix | ADR-0005 | ✅ |
+| TR-hud-001 | hud.md | Own-tank hull and fuel bars | — (data: ADR-0003; display: Required ADR #4) | ❌ Gap |
+| TR-hud-002 | hud.md | Team player counts, correct offline | — (data: ADR-0002; G11) | ❌ Gap |
+| TR-hud-003 | hud.md | Ping and FPS every ~0.6 s | — | ❌ Gap |
+| TR-hud-004 | hud.md | Target panel; recovers on re-entry | — (L1 row 9 bug) | ❌ Gap |
+| TR-hud-005 | hud.md | Leave Game shows with the cursor visible; leaves to the launcher | ADR-0002 (leave path); visibility via TR-camera-cursor-002 | ⚠️ Partial |
+| TR-hud-006 | hud.md | Plurals, no overlap, crosshair, centre clear, red/blue | — | ❌ Gap |
+| TR-hud-007 | hud.md | Playtest A14/A17; gates 6e win, 6c match | ADR-0005 | ✅ |
+| TR-audio-001 | audio.md | Combat cues 3D on every client in range | ADR-0002/0003 (replication only; no audio ADR) | ⚠️ Partial |
+| TR-audio-002 | audio.md | Owner-only feedback cues | ADR-0001; cargo cues on ADR-0003's `SetPickedUpCargo` | ✅ |
+| TR-audio-003 | audio.md | Engine hums while hovering, silent when landed, on every client | — (landed state not synced, G8) | ❌ Gap |
+| TR-audio-004 | audio.md | Playtest only (A2, A16, B2) | ADR-0005 decides the gate, not the playtest (G14) | ⚠️ Partial |
 
 ## Known Gaps
 - TR-game-concept-008: join and late-join state sync ADR (Core; deferred by ADR-0005). Add cargo's unbuffered
   `SetContent` / `SetPickedUpCargo` RPCs to its scope.
-- TR-game-concept-011: performance and network budgets ADR (include PUN's 999 scene view-ID limit).
-- TR-game-concept-010: team-colour presentation (with a UI/presentation ADR).
+- TR-game-concept-011: performance and network budgets ADR (include PUN's 999 scene view-ID limit). Add
+  TR-hover-movement-004 (frame-rate independence) as a control-manifest rule from it, and review 4 G12.
+- TR-game-concept-010: team-colour presentation (with the HUD/UI ADR).
 - TR-win-condition-016: audio cue (with a presentation ADR).
-- TR-cargo-007: HUD hold display (with the HUD/UI ADR, Required ADR #4).
-- TR-self-destruct-006, TR-turrets-008, TR-cargo-008 (and partial TR-win-condition-015): a small
-  "balance values and tuning path" ADR.
-- Partials needing an ADR, not just code: TR-game-concept-009 / TR-turrets-005 / TR-self-destruct-005
-  (splash damage online, Required ADR #5, proposed "Must have"); TR-turrets-002 (master-run AI and its sync).
-- Structural: 16 of the 21 implemented systems (systems-index rows marked Implemented) still have no GDD, so they have no requirements to trace.
+- TR-cargo-007, TR-hud-001, -002, -003, -004, -006: HUD display (Required ADR #4, HUD and UI architecture).
+- TR-camera-cursor-002: the input mode (driving vs UI); widen Required ADR #4 to "HUD, UI and input mode" (review 4
+  G1). TR-hover-movement-003, TR-deploy-003 and TR-hud-005 are partial until it exists.
+- TR-audio-003: the landed state must reach other clients for the engine sound (with Required ADR #6, room-object
+  and presentation state sync, or a small audio ADR).
+- TR-self-destruct-006, TR-turrets-008, TR-cargo-008, TR-hover-movement-005, TR-camera-cursor-004, TR-deploy-004
+  (and partial TR-win-condition-015): a small "balance values and tuning path" ADR.
+- Partials needing an ADR, not just code: TR-game-concept-009 / TR-turrets-005 / TR-self-destruct-005 (splash
+  damage online, Required ADR #5, Must have before M3); TR-turrets-002 (master-run AI and its sync);
+  TR-hover-movement-001 (ADR-0003 amendment: owner-authoritative movement, review 4 G2); TR-deploy-003 (ADR-0003
+  amendment: the master refuses a dead tank's deploy, review 4 G4).
+- Structural: 11 of the 21 implemented systems (systems-index rows marked Implemented) still have no GDD, so they
+  have no requirements to trace.
 
 ## Superseded Requirements
-None. The game-concept and win-condition GDDs are unchanged since review 2; their 28 entries are reused as they are.
-Stale *text* in those GDDs (self-destruct friendly fire, flak balance, `BlueCargo` open questions) changes no
-registered requirement.
+None. The six GDDs registered before review 4 changed only in text that review 3 proposed; their 54 entries are
+reused as they are. Requirements in the five new GDDs that an earlier entry already states (TR-cargo-004, -005,
+-007, -010; TR-win-condition-014, -016; TR-game-concept-010) are referenced, not registered again.
 
 ## History
 | Date | Covered | Partial | Gaps | Notes |
@@ -93,3 +129,5 @@ registered requirement.
 | 2026-10-26 | 17 | 7 | 4 | Review 2: CONCERNS (C1 resolved, ADR-0004 Accepted) |
 | 2026-10-27 | 34 | 11 | 8 | Review 3: CONCERNS (+25 TR-IDs for self-destruct, turrets, cargo; no ADR change) |
 | 2026-10-27 | 36 | 10 | 8 | Owner, applying review 3: TR-win-condition-012 raised to covered (ADR-0004); TR-cargo-010 added (deploy team, ADR-0003 amendment) |
+| 2026-10-27 | 45 | 17 | 19 | Review 4: CONCERNS (+27 TR-IDs for hover-movement, camera-cursor, deploy, hud, audio; no ADR change) |
+| 2026-10-27 | 46 | 16 | 19 | Owner, applying review 4: ADR-0003 amended (owner-authoritative movement, owner-spawned pulse shells); TR-hover-movement-001 covered |

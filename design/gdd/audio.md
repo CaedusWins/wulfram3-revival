@@ -32,7 +32,7 @@ The cues, as built:
 
 | # | Cue | Clip | Plays when | Who hears it |
 |---|---|---|---|---|
-| 1 | Engine | `tank.ogg` (volume 0.2) | the tank appears; again at take-off; stops at landing | everyone near the tank (3D) |
+| 1 | Engine | `tank.ogg` (volume 0.2) | the tank appears; loops for the owner; again at take-off; stops at landing | the owner hears the loop and its stops; others hear one play when the tank appears (3D) |
 | 2 | Jump | `tank_jump3.ogg` | a jump | the owner only |
 | 3 | Take-off | `takeoff.ogg` | lifting off from landed | the owner only |
 | 4 | Landing | `tank_touchdowna.ogg` | landing | the owner only |

@@ -59,8 +59,14 @@ the gameplay test, 2026-10-20).
 ## Decision
 - Damage goes through `HitPointsManager.TellServerTakeDamage` → `TakeDamage` RPC to the master, which
   clamps and broadcasts `UpdateHealth` to all. Healing on respawn goes through `TellServerHealth`.
-- The master destroys non-player units at 0 health (`GameManager.UnitsHealthUpdated`) and spawns shells
-  and explosions.
+- The master destroys non-player units at 0 health (`GameManager.UnitsHealthUpdated`) and spawns flak
+  shells and unit death explosions. *Amended 2026-10-27 (architecture review 4, G3):* a tank's pulse shell
+  is spawned by its owner (`PhotonNetwork.Instantiate`), whose client detects the hit, requests the damage
+  through `TellServerTakeDamage` and spawns the impact explosion. Trusting that client's hit detection is a
+  question for the RPC trust model (Required ADR #2).
+- *Amended 2026-10-27 (architecture review 4, G2):* **a tank's movement is owner-authoritative**: only its
+  owner reads input and simulates its rigidbody; other clients keep it kinematic and show the pose its
+  PhotonView syncs. The RPC trust model (Required ADR #2) will bound it (speed, teleport).
 - **Deployed units belong to the room** (amended 2026-10-26, architecture review C1): a deploy is a
   request to the master (`GameManager.DeployUnit` -> `RequestDeploy`), which creates the unit with
   `PhotonNetwork.InstantiateSceneObject`, the deployer's team as instantiation data. PUN only lets an

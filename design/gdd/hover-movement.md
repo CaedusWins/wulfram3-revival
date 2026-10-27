@@ -11,7 +11,7 @@
 The hovertank floats a set height above the terrain, drives with WASD, aims the whole hull with the mouse,
 raises or lowers its hover height (Shift / Left Ctrl) to take off or land, and jumps (Space) for fuel.
 
-> **Quick reference** — Layer: `Core` · Priority: `MVP` · Key deps: `Physics, Input, Fuel, Camera & Cursor`
+> **Quick reference** — Layer: `Core` · Priority: `MVP` · Key deps: `Physics, Input, Fuel`; reads the input mode (driving vs UI, Required ADR #4)
 
 ## Overview
 
@@ -46,8 +46,8 @@ gun platform) or lift off and move.
 7. **Jump (Space or Keypad 0):** costs `fuelPerJump` (20) and pushes the tank up along its own up axis;
    at most one jump per `timeBetweenJumps` (3 s). Refused without the fuel.
 8. **Death:** at 0 health the tank takes no input; after `destroyDelayWhenDead` (5 s) the respawn flow starts
-   (`win-condition.md`).
-9. **Authority:** the owner's client moves its own tank (ADR-0003 leaves movement with the owner); others see
+   (`win-condition.md`): the overhead map, then a pad click or a new pad.
+9. **Authority:** the owner's client moves its own tank (ADR-0003, amended 2026-10-27); others see
    it through PUN's view sync.
 
 ### States and Transitions
@@ -122,11 +122,13 @@ None (fuel shows on the HUD, `hud.md`).
 ## Acceptance Criteria
 
 1. WASD moves the tank; a visible cursor stops it (manual, playtest A1).
-2. The tank hovers above the terrain without falling through it (gate 6e drives onto a box; playtest A1).
+2. The tank hovers above the terrain without falling through it (manual, playtest A1; gate 6e drives the
+   tank onto a box but doesn't assert the hover).
 3. Shift raises the hover and takes off a landed tank; Ctrl lowers it and lands on ground within 0.3
    (manual, playtest A2).
 4. Space jumps for 20 fuel, at most once per 3 s, and is refused without fuel (manual, playtest A2).
-5. A dead tank takes no input and respawns after 5 s (gate 6e `respawn`).
+5. A dead tank takes no input; after 5 s the overhead map shows, and it respawns when its player clicks an
+   own-team pad, or by itself when a pad appears (gate 6e `respawn`).
 
 ## Known Issues
 

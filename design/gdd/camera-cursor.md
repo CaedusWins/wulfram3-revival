@@ -36,8 +36,10 @@ You are in the tank: the cockpit view for precise shots, the chase view to see y
    click re-applies the lock for the current state (so a click back into the window re-captures it).
 4. **Driving vs UI:** while the cursor is visible the tank gets no drive, mouse-look or fire input
    (`hover-movement.md`, weapons), and the HUD's clickable panel shows (`hud.md`).
-5. **Death:** the camera is detached and the overhead map camera takes over with the cursor shown; respawn
-   restores the tank camera and hides the cursor (`win-condition.md`).
+5. **Death:** when the death timer (`destroyDelayWhenDead`, 5 s) runs out, the tank camera is switched off
+   and the overhead map camera on, with the cursor shown; respawn restores the tank camera and hides the
+   cursor (`win-condition.md`). The camera stays parented to the tank (`CameraManager.Detach` is never
+   called).
 
 ### States and Transitions
 
@@ -49,7 +51,7 @@ You are in the tank: the cockpit view for precise shots, the chase view to see y
 
 | Cursor | Meaning | Transitions |
 |---|---|---|
-| Hidden (locked) | Driving and fighting | → Visible on Esc, or at death |
+| Hidden (locked) | Driving and fighting | → Visible on Esc, or when the respawn flow starts (5 s after death) |
 | Visible (free) | UI | → Hidden on Esc, or at respawn |
 
 ### Interactions with Other Systems
@@ -104,8 +106,8 @@ The clickable HUD panel appears only with the cursor visible (`hud.md`).
 1. Esc toggles the cursor between hidden (locked) and visible (manual, playtest A3).
 2. C swaps cockpit and chase views, only while the cursor is hidden (manual, playtest A4).
 3. While the cursor is visible the tank does not drive or fire (manual, playtest A3).
-4. At death the overhead camera and cursor show; at respawn the tank camera returns and the cursor hides
-   (gate 6e `respawn`).
+4. 5 s after death the overhead camera and cursor show; at respawn the tank camera returns and the cursor
+   hides (gate 6e `respawn`).
 
 ## Known Issues
 
