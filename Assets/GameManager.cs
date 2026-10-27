@@ -139,7 +139,13 @@ namespace Com.Wulfram3
                 // A player who already has a team (the arena was reset after a match,
                 // MatchManager.ResetArena) keeps it; the counts include that player.
                 PunTeams.Team myTeam = PhotonNetwork.player.GetTeam();
-                if (myTeam == PunTeams.Team.red || (myTeam != PunTeams.Team.blue && bluePlayers > redPlayers)) {
+                // Two players who join at the same instant don't see each other's team yet: both
+                // counted 0 - 0 and both took blue, so the match never armed (gate 6d, 2026-10-27).
+                // A tie is broken by the actor number the server hands out in join order: odd blue,
+                // even red. One after the other, the first is still blue and the second red; offline
+                // the player is actor 1, blue.
+                bool tieGoesRed = bluePlayers == redPlayers && PhotonNetwork.player.ID % 2 == 0;
+                if (myTeam == PunTeams.Team.red || (myTeam != PunTeams.Team.blue && (bluePlayers > redPlayers || tieGoesRed))) {
                     Debug.Log("Spawn red tank");
                     Transform selectedSpawnPoint = spawnPointsRed[0];
                     GameObject player = PhotonNetwork.Instantiate("RedTank", selectedSpawnPoint.position, selectedSpawnPoint.rotation, 0);

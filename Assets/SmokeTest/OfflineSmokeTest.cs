@@ -407,11 +407,27 @@ namespace Wulfram.SmokeTest
             return count;
         }
 
+        // PUN logs every refused operation as an error, including a join the launcher then handles by
+        // moving on to another room (LauncherWithLogin.JoinNext): the room is full (32765) or this
+        // user is already in it (32746). Those are counted apart; any other error still fails.
+        private int handledJoinRefusals;
+
+        private static bool IsHandledJoinRefusal(string message)
+        {
+            return message != null && message.StartsWith("Operation failed: OperationResponse 226:") &&
+                (message.Contains("ReturnCode: 32765") || message.Contains("ReturnCode: 32746"));
+        }
+
         private void OnLog(string message, string stackTrace, LogType type)
         {
             if (type == LogType.Exception)
             {
                 exceptions++;
+            }
+            else if (type == LogType.Error && IsHandledJoinRefusal(message))
+            {
+                handledJoinRefusals++;
+                return;
             }
             else if (type == LogType.Error)
             {
@@ -446,7 +462,7 @@ namespace Wulfram.SmokeTest
             if (Wulfram.OfflinePlay.OfflinePlay.Active || online)
             {
                 // Go in exactly the way a player does: the launcher's Play button handler (guest
-                // login -> Connect -> ConnectUsingSettings / JoinRandomRoom). With -offlinePlay that
+                // login -> Connect -> ConnectUsingSettings / JoinOrCreateRoom). With -offlinePlay that
                 // is PUN offline mode; with -smokeOnline it is the real Photon Cloud.
                 Com.Wulfram3.LauncherWithLogin launcher = FindObjectOfType<Com.Wulfram3.LauncherWithLogin>();
                 Debug.Log("SMOKE: entering via the launcher's Play button (" + (online ? "online, Photon Cloud" : "offline play") + ")" +
@@ -783,7 +799,7 @@ namespace Wulfram.SmokeTest
                 " missingScripts=" + missing + " tabPicks=" + tabPicks + " tabInvalid=" + tabInvalid +
                 " probeVisibleFrames=" + probeVisibleFrames + " probePanelShown=" + probePanelShown +
                 " returnedToLauncher=" + returnedToLauncher + " (" + SceneManager.GetActiveScene().name + ")" +
-                " exceptions=" + exceptions + " errors=" + errors + " cursorReleased=" + (!lockCursor) + "(" + cursorReleases + "x)" + net);
+                " exceptions=" + exceptions + " errors=" + errors + " handledJoinRefusals=" + handledJoinRefusals + " cursorReleased=" + (!lockCursor) + "(" + cursorReleases + "x)" + net);
             for (int i = 0; i < firstProblems.Count; i++)
             {
                 Debug.Log("SMOKE: problem " + (i + 1) + " - " + firstProblems[i]);

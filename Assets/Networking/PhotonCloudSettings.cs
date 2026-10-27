@@ -34,6 +34,37 @@ namespace Wulfram.Networking
         /// </summary>
         public static readonly bool ChatEnabled = false;
 
+        /// <summary>
+        /// The one room every player joins, by name, so players who press Play at the same moment
+        /// meet (see LauncherWithLogin.JoinArena). -photonRoom <name> picks another room; the
+        /// verification gate uses it to keep each test run apart from players and other runs.
+        /// </summary>
+        public const string DefaultRoomName = "Wulfram3";
+
+        public static string RoomName
+        {
+            get
+            {
+                string room = Arg("-photonRoom");
+                return string.IsNullOrEmpty(room) ? DefaultRoomName : room;
+            }
+        }
+
+        /// <summary>
+        /// Room size for rooms this client creates: -photonMaxPlayers <1-255> if given, else the
+        /// launcher's serialized MaxPlayersPerRoom. Lets a test fill a room with two clients.
+        /// </summary>
+        public static byte MaxPlayers(byte fallback)
+        {
+            string arg = Arg("-photonMaxPlayers");
+            byte value;
+            if (!string.IsNullOrEmpty(arg) && byte.TryParse(arg, out value) && value > 0)
+            {
+                return value;
+            }
+            return fallback;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Apply()
         {
@@ -77,6 +108,19 @@ namespace Wulfram.Networking
             PhotonNetwork.PhotonServerSettings = copy;
             Configured = true;
             Debug.Log("PhotonCloud: Photon Cloud, region " + region + ", App ID " + appId.Substring(0, 8) + "... (from " + source + ")");
+        }
+
+        /// <summary>
+        /// This session's Photon user ID. Photon refuses a second player with the same user ID in a
+        /// room, and without one PUN uses the player's name, so two guests who drew the same name
+        /// (two windows started in the same tick) could not share a room (2026-10-27 playtest).
+        /// A fresh GUID per session makes it unique; -photonUserId sets it, for the gate's test of
+        /// a refused join.
+        /// </summary>
+        public static string NewUserId()
+        {
+            string id = Arg("-photonUserId");
+            return string.IsNullOrEmpty(id) ? System.Guid.NewGuid().ToString() : id;
         }
 
         private static string Arg(string name)

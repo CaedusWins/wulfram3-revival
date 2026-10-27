@@ -51,7 +51,7 @@ namespace Assets.InternalApis.Implementations
             {
                 var guestName = PlayerPrefs.HasKey("PlayerName")
                     ? PlayerPrefs.GetString("PlayerName")
-                    : "GuestUser#" + new System.Random().Next(1, 9000);
+                    : "GuestUser#" + new System.Random(System.Guid.NewGuid().GetHashCode()).Next(1, 9000);
 
                 this.player = new WulframPlayer { userName = guestName, type = "Guest", scores = new PlayerScores() };
                 PhotonNetwork.playerName = guestName;
@@ -131,7 +131,7 @@ namespace Assets.InternalApis.Implementations
                 }
                 else
                 {
-                    defaultName = "GuestUser#" + new System.Random().Next(1, 9000);
+                    defaultName = "GuestUser#" + new System.Random(System.Guid.NewGuid().GetHashCode()).Next(1, 9000);
                     Debug.Log("defaultName:" + defaultName);
                 }
             }

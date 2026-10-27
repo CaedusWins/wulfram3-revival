@@ -10,7 +10,7 @@ namespace Wulfram.OfflinePlay
     ///   - Unity editor:  menu Wulfram > Offline Play (no server), then press Play
     ///
     /// From the launcher, press Play as usual: the guest login runs, LauncherWithLogin.Connect
-    /// sees PUN as connected (always true offline) and calls JoinRandomRoom, which offline
+    /// sees PUN as connected (always true offline) and calls JoinOrCreateRoom, which offline
     /// creates a local room, and OnJoinedRoom loads Playground. Leaving the room returns to the
     /// launcher, and Play works again.
     ///

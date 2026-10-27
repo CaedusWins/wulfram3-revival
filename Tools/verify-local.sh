@@ -29,12 +29,15 @@
 #                 the tank (dead tanks can't fire), the overhead map + cursor appear, clicking a repair
 #                 pad respawns it (full health/fuel, normal camera); self-destruct (V) blasts a nearby
 #                 enemy and kills the tank, and respawn works again. "GAMEPLAY: PASS".
-#                 (6d is taken by the parked feature/join-same-room.)
 #   6c. online   only with --online (needs the Photon App ID + internet): M2 - two clients through the
 #                 real Play button on Photon Cloud must share one room, see 2 players + 2 tanks, and
 #                 deal damage both ways via the game's network damage path (TellServerTakeDamage),
 #                 and each own tank must regenerate. The clients run the checks in lockstep
 #                 (barriers on a player property), and each client's verdict is reported.
+#                 The second client starts 8s after the first. Each run joins its own room
+#                 (-photonRoom gate-<run>-<step>-<n>), never the players' default one.
+#   6d.           the same with both clients pressing Play at the same instant (the join race the
+#                 owner hit in the 2026-10-27 playtest).
 #   7. smoke-win  only with --windowed: the same in a 1280x720 window (it is on screen for ~30s -
 #                 don't click it), and probePanelShown=True is required too: only a rendered frame
 #                 reaches the body of TargetInfoController.LateUpdate. If the game first shows Unity's
@@ -284,17 +287,20 @@ smoke_gameplay() {
   fi
 }
 
-# 6c. M2 online (only with --online): two clients through the real Play button on Photon Cloud.
-# The second client starts 8s later: two clients pressing Play at the same instant can each
-# create their own room (JoinRandomRoom finds none yet) and never meet. Each client's own verdict
-# is checked separately from the shared-room check, so neither can hide the other.
+# 6c/6d. M2 online (only with --online): two clients through the real Play button on Photon Cloud.
+# online_pair <step> <seconds between the two starts> <run>: 6c starts the second client 8s later,
+# 6d both at the same instant (two clients could each create their own room and never meet).
+# Every run asks for its own room with -photonRoom, so a gate never meets real players or another
+# gate. Each client's own verdict is checked separately from the shared-room check, so neither can
+# hide the other.
 online_pair() {
-  local logA="$OUT/6c-online-client-A$(run_tag "$1").log" logB="$OUT/6c-online-client-B$(run_tag "$1").log"
-  local pidA pidB roomA roomB verdictA verdictB
-  timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logA" 2>&1 &
+  local step="$1" delay="$2" k="$3"
+  local logA="$OUT/$step-online-client-A$(run_tag "$k").log" logB="$OUT/$step-online-client-B$(run_tag "$k").log"
+  local room="gate-$RUN_ID-$step-$k" pidA pidB roomA roomB verdictA verdictB
+  timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 -photonRoom "$room" > "$logA" 2>&1 &
   pidA=$!
-  sleep 8
-  timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 > "$logB" 2>&1 &
+  [ "$delay" -gt 0 ] && sleep "$delay"
+  timeout 300 "$player" -batchmode -offlineSmokeTest -smokeOnline -smokeExpectPlayers 2 -smokeSeconds 10 -photonRoom "$room" > "$logB" 2>&1 &
   pidB=$!
   wait "$pidA"
   wait "$pidB"
@@ -306,11 +312,15 @@ online_pair() {
   verdictA=$(tr -d '\r' < "$logA" | grep -oE '^SMOKE: (PASS|FAIL)$' | tail -1)
   verdictB=$(tr -d '\r' < "$logB" | grep -oE '^SMOKE: (PASS|FAIL)$' | tail -1)
   if grep -q '^PhotonCloud: no Photon App ID' "$logA"; then
-    fail "online M2$(run_label "$1") - no Photon App ID (Assets/Resources/PhotonAppId.local.txt or WULFRAM_PHOTON_APPID)"
-  elif [ "$verdictA" = "SMOKE: PASS" ] && [ "$verdictB" = "SMOKE: PASS" ] && [ -n "$roomA" ] && [ "$roomA" = "$roomB" ]; then
-    pass "online M2$(run_label "$1"): two clients in one Photon Cloud room ($roomA), damage both ways, regen, match end + reset"
+    fail "online M2 ($step)$(run_label "$k") - no Photon App ID (Assets/Resources/PhotonAppId.local.txt or WULFRAM_PHOTON_APPID)"
+  elif [ -z "$roomA" ] || [ "$roomA" != "$roomB" ]; then
+    fail "online M2 ($step)$(run_label "$k") - the two clients (${delay}s apart) are not in one room: '${roomA}' / '${roomB}', client A '${verdictA:-no result}', client B '${verdictB:-no result}' - see $logA and $logB"
+  elif [ "$roomA" != "room=$room" ]; then
+    fail "online M2 ($step)$(run_label "$k") - shared room is '$roomA', expected 'room=$room' (-photonRoom ignored?) - see $logA"
+  elif [ "$verdictA" = "SMOKE: PASS" ] && [ "$verdictB" = "SMOKE: PASS" ]; then
+    pass "online M2 ($step)$(run_label "$k"): two clients started ${delay}s apart in one Photon Cloud room ($roomA), damage both ways, regen, match end + reset"
   else
-    fail "online M2$(run_label "$1") - client A '${verdictA:-no result}', client B '${verdictB:-no result}', rooms '${roomA}' / '${roomB}' - see $logA and $logB"
+    fail "online M2 ($step)$(run_label "$k") - client A '${verdictA:-no result}', client B '${verdictB:-no result}' in $roomA - see $logA and $logB"
   fi
 }
 
@@ -319,7 +329,9 @@ if [ "$built" -eq 1 ]; then
   for k in $(seq 1 "$STRESS"); do smoke_offline_play "$k"; done
   for k in $(seq 1 "$STRESS"); do smoke_gameplay "$k"; done
   if [ "$ONLINE" -eq 1 ]; then
-    for k in $(seq 1 "$STRESS"); do online_pair "$k"; done
+    RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
+    for k in $(seq 1 "$STRESS"); do online_pair 6c 8 "$k"; done
+    for k in $(seq 1 "$STRESS"); do online_pair 6d 0 "$k"; done
   fi
 else
   fail "smoke (headless) - skipped, no build"
