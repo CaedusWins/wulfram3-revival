@@ -1,9 +1,9 @@
 # ADR-0004: Match flow: a runtime-added MatchManager, master-decided result, reset by scene reload
 
 ## Status
-Proposed
+Accepted
 
-To be accepted once an online two-client test shows a match result and the arena reset on both clients (GDD acceptance criterion 9). The offline evidence is complete (gate 6e, `wc-gate2`).
+Accepted 2026-10-26 by the owner. Its condition was met: the online two-client test (gate 6c, `ro-gate2`, 3/3) shows the result on both clients (VICTORY/DEFEAT in 0.3-0.7 s) and the arena reset, with 0 errors. The offline evidence is gate 6e (`wc-gate2`, `ro-gate2`).
 
 ## Date
 2026-10-26 (retrofit: implemented in PR #33 the same day, before this ADR was written)
@@ -153,7 +153,7 @@ GameManager GO (scene, PhotonView) ── AddComponent ──> MatchManager
 Implemented in PR #33 (`104704f`). The arena-centre respawn fallback was removed.
 
 ## Validation Criteria
-Gate 6e: `match-armed`, `victory` (≤ 2 s), `match-over-no-damage`, `reset`, `draw`, `-lone-player`, `-no-pad`, `-new-pad`, `deploy-team` (all PASS, `wc-gate2` 3/3). To add: online two-client victory and reset.
+Gate 6c (online, two clients): `match` - deploy (room-owned), the non-master's pad destroyed, VICTORY/DEFEAT, reset (`ro-gate2` 3/3). Gate 6e: `match-armed`, `victory` (≤ 2 s), `match-over-no-damage`, `reset`, `draw`, `-lone-player`, `-no-pad`, `-new-pad`, `deploy-team` (all PASS, `wc-gate2` 3/3). To add: online two-client victory and reset.
 
 ## Related
 - ADR-0002, ADR-0003

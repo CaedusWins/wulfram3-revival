@@ -40,7 +40,7 @@ step 4a).
 | 15 | Deploy / Base Building (`GroundPlacementController`) | Gameplay | MVP | Implemented (row 13) | — | Cargo, Teams |
 | 16 | Turrets (`FlakTurretManager`, `GTManager`) | Gameplay | MVP | Implemented (row 14); SAM turret has no AI | — | Teams, Health |
 | 17 | Repair Pads (respawn points) | Gameplay | MVP | Implemented (row 10) | — | Deploy, Teams |
-| 18 | Win Condition (`MatchManager`) | Gameplay | MVP | Implemented (offline-proven, gate 6e `win`; online two-client check to come) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
+| 18 | Win Condition (`MatchManager`) | Gameplay | MVP | Implemented (gate 6e `win` offline; gate 6c `match` online, two clients; ADR-0004 Accepted) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
 | 19 | Team & Vehicle Selection (inferred) | UI | Vertical Slice | Not Started (spawning assigns teams automatically today) | — | Teams, Networking |
 | 20 | HUD (`GUIManager`, `StatusBarController`, `TeamCounter`, `PingCounter`) | UI | MVP | Implemented (manual, row 17) | — | Health, Fuel |
 | 21 | Launcher / Login (`LauncherWithLogin`) | UI | MVP | Implemented (guest login; 2018 account backend dead) | — | Networking |

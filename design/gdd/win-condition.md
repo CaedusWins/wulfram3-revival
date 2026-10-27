@@ -168,8 +168,8 @@ final push.
 
 - `Assets/MatchManager.cs`, added at runtime by `GameManager.Start` (the scenes are binary). The reset
   reloads the arena scene on every client, so the whole starting base comes back (open question 3).
-- Covered by the offline gameplay test (gate step 6e): acceptance criteria 2–8. Criterion 1 is
-  checked offline only; **the online two-client check (criterion 9) is still to do**.
+- Covered by the offline gameplay test (gate step 6e): acceptance criteria 2–8. Criteria 1 and 9 are
+  also checked online by gate 6c `match` (two clients; added with the C1 fix, #36).
 - Differences from this document, kept small on purpose:
   - after a reset, tanks start at their team's spawn point (`GameManager.spawnPoints*`), next to
     the base, rather than on the pad itself;
