@@ -67,6 +67,11 @@ the gameplay test, 2026-10-20).
   object's owner network-destroy it, so a unit owned by the deploying client could never be removed by
   the master; and PUN removes a leaving player's own objects (`autoCleanUpPlayerObjects`, default true),
   so a team's base vanished with its builder.
+- **The master checks every deploy request** (amended 2026-10-26, architecture review 2, N1/N4):
+  `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID. The master
+  refuses a tank that isn't the sender's, an empty hold, a missing prefab, or a match that has ended;
+  it deploys the cargo actually on board with the tank's team and empties the hold. Dropped cargo is a
+  room object too (N3). The placement preview is a local, look-only picture with no network identity (N2).
 - Teams are compared only with `Unit.SameTeam(a, b)`; `Unit.NormalizeTeam` ignores case, spaces and a
   trailing "team". A unit with no team (`""`) belongs to no one.
 

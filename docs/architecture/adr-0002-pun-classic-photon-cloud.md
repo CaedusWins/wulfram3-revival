@@ -71,7 +71,7 @@ App ID: args → env WULFRAM_PHOTON_APPID → Resources/PhotonAppId.local.txt (g
 ```
 
 ### Key Interfaces
-- `PhotonNetwork.Instantiate` / `PhotonNetwork.Destroy` for every networked object.
+- `PhotonNetwork.Instantiate` / `PhotonNetwork.Destroy` for every networked object. Shared units (deployed units, dropped cargo) are created by the master with `PhotonNetwork.InstantiateSceneObject`, so they belong to the room (ADR-0003).
 - `[PunRPC]` methods invoked through `photonView.RPC`.
 - `PhotonCloudSettings.AppIdResource` = `"PhotonAppId.local"`.
 

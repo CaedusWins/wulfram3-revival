@@ -141,6 +141,19 @@ interfaces:
       - docs/architecture/adr-0004-match-flow-matchmanager.md
     added: 2026-10-26
     revised: ""
+  - contract: deploy_request
+    status: active
+    pattern: rpc
+    producer: any-client
+    consumers:
+      - master-client
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
+    signal_signature: "GameManager.DeployUnit(CargoManager, Vector3, Quaternion) -> RequestDeploy(int tankViewId, ...) to master, which checks and creates the carried unit with InstantiateSceneObject"
+    referenced_by:
+      - docs/architecture/adr-0003-master-authority-and-team-identity.md
+      - docs/architecture/adr-0004-match-flow-matchmanager.md
+    added: 2026-10-26
+    revised: ""
 
 # Example:
 #
@@ -279,6 +292,12 @@ forbidden_patterns:
     description: "In a room, never create or remove a networked object with plain Instantiate/Destroy; use PhotonNetwork.Instantiate/Destroy (local cleanup after leaving the room is the one exception)."
     why: "A plain Destroy leaves the object standing on every other client (the deploy preview ghost)."
     adr: docs/architecture/adr-0002-pun-classic-photon-cloud.md
+    added: 2026-10-26
+  - pattern: client_owned_shared_unit
+    status: active
+    description: "Never create a unit other players can damage or use with PhotonNetwork.Instantiate on a player's client; ask the master, which creates it with InstantiateSceneObject."
+    why: "PUN lets only the owner network-destroy an object, and it deletes a leaving player's objects (architecture review C1)."
+    adr: docs/architecture/adr-0003-master-authority-and-team-identity.md
     added: 2026-10-26
 
 # Example:

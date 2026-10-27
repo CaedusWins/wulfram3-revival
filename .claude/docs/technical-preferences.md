@@ -46,7 +46,7 @@
 
 ## Testing
 
-- **Framework**: Project gate `Tools/verify-local.sh` (Unity batch compile/build, scene/cargo/audit checks, `OfflineSmokeTest` and `GameplaySmokeTest` in the built player, online M2 pair, editor Play-mode check) + CI `.github/workflows/checks.yml` (C# 4 guard, script identity, .meta integrity, secret scan, Photon RPC check). No Unity Test Runner tests exist.
+- **Framework**: Project gate `Tools/verify-local.sh` (Unity batch compile/build, scene/cargo/audit checks, `OfflineSmokeTest` and `GameplaySmokeTest` in the built player, online M2 pair, editor Play-mode check) + CI `.github/workflows/checks.yml` (C# 4 guard, script identity, .meta integrity, secret scan, Photon RPC check). No Unity Test Runner tests exist. The gate and these in-player tests are the project's test root, in place of the template's `Assets/Tests/EditMode|PlayMode` folders and `tests.yml` (architecture review 2, Q5).
 - **Minimum Coverage**: every merge passes the full gate on a fresh clone; L1 checklist rows proven per `docs/L1-LOCAL-PLAYABILITY.md`
 - **Required Tests**: Balance formulas, gameplay systems, networking (if applicable)
 
