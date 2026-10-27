@@ -40,7 +40,7 @@
 #   unsupported layout, with its number.
 
 version: 1
-last_updated: "2026-10-26"
+last_updated: "2026-10-27"
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -74,6 +74,16 @@ state_ownership:
     referenced_by:
       - docs/architecture/adr-0004-match-flow-matchmanager.md
     added: 2026-10-26
+    revised: ""
+  - state: input_mode
+    status: active
+    owner_system: input-mode (InputMode static class)
+    adr: docs/architecture/adr-0006-hud-ui-and-input-mode.md
+    interface: "InputMode.Driving (read); InputMode.SetUI(bool) / InputMode.Toggle() (write: Esc and the respawn flow only)"
+    write_access: local-client (Esc via CursorVisibilityManager; the respawn flow)
+    referenced_by:
+      - docs/architecture/adr-0006-hud-ui-and-input-mode.md
+    added: 2026-10-27
     revised: ""
 
 # Example:
@@ -293,6 +303,18 @@ forbidden_patterns:
     why: "A plain Destroy leaves the object standing on every other client (the deploy preview ghost)."
     adr: docs/architecture/adr-0002-pun-classic-photon-cloud.md
     added: 2026-10-26
+  - pattern: direct_cursor_write
+    status: active
+    description: "Never write Cursor.visible or Cursor.lockState outside InputMode (the gameplay test excepted); read the mode through InputMode.Driving."
+    why: "Three writers and six readers shared the convention with no owner, and only one writer applied the lock (architecture review 4, G1)."
+    adr: docs/architecture/adr-0006-hud-ui-and-input-mode.md
+    added: 2026-10-27
+  - pattern: ongui_hud_element
+    status: active
+    description: "Never add HUD elements with OnGUI; use Unity UI under HUDCanvas. MatchManager.OnGUI is the one exception until the HUD rework."
+    why: "Two UI systems drew over each other (the match line over the status line)."
+    adr: docs/architecture/adr-0006-hud-ui-and-input-mode.md
+    added: 2026-10-27
   - pattern: client_owned_shared_unit
     status: active
     description: "Never create a unit other players can damage or use with PhotonNetwork.Instantiate on a player's client; ask the master, which creates it with InstantiateSceneObject."

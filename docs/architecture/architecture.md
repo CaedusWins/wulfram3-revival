@@ -6,7 +6,7 @@
 - Engine: Unity 2017.3.0f3 (C# 4, Mono), PUN Classic 1.88 on Photon Cloud
 - Workflow tier: `standard` (system layer map + critical ADR list; module ownership, data flow and API boundaries are left to the ADRs)
 - GDDs Covered: game-concept.md, systems-index.md (26 systems), win-condition.md, self-destruct.md, turrets.md, cargo.md, hover-movement.md, camera-cursor.md, deploy.md, hud.md, audio.md
-- ADRs Referenced: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005 (all Accepted)
+- ADRs Referenced: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006 (all Accepted)
 - Retrofitted: the architecture describes the 2018 code base as it is today, plus the decisions the ADRs record
 - TD-ARCHITECTURE: 2026-10-26 — skipped — Lean mode
 - LP-FEASIBILITY: 2026-10-26 — skipped — Lean mode
@@ -97,6 +97,7 @@ RPCs, the deploy request, the match-result and reset RPCs, and team comparison.
 | ADR-0003 master authority, teams, room-owned units | Core | Accepted | present | systems index #5/#6, win-condition |
 | ADR-0004 match flow | Feature | Accepted | present | win-condition |
 | ADR-0005 gate, branches, local first | Foundation | Accepted | present | game-concept |
+| ADR-0006 HUD, UI and input mode | Core / Presentation | Accepted | present | camera-cursor, hover-movement, deploy, hud, win-condition, cargo |
 
 Traceability: 81 requirements, 46 covered, 16 partial, 19 gaps (`docs/architecture/requirements-traceability.md`,
 architecture review 4 as applied by the owner: TR-hover-movement-001 covered by the ADR-0003 amendment). 11
@@ -113,7 +114,7 @@ implemented systems have no GDD yet, so they have no requirements to trace.
 5. **Splash damage online** — who selects splash victims and how damage is routed (TR-game-concept-009, TR-turrets-005, TR-self-destruct-005). `ExplosionPhysicsForce` only collects bodies the client controls and only the master applies damage, so no client ever splashes a non-master player's tank; it also calls `TakeDamage` directly (review 3 F1, F5). Explosions & Splash is Core, MVP, and three approved GDDs depend on it.
 
 **Should have before the relevant system is built:**
-4. **HUD, UI and input mode** (widened after architecture review 4, G1) — one owner for the input mode (driving vs UI, `Cursor.visible` today: three writers, six readers); UGUI vs `OnGUI`, the match banner, team colour presentation, the hold's content (TR-camera-cursor-002, TR-hud-001..006, TR-win-condition-014, TR-game-concept-010, TR-cargo-007). Owner, 2026-10-27: write it next, before the epics and stories.
+4. ~~**HUD, UI and input mode**~~ **Written: ADR-0006, Accepted 2026-10-27** (the traceability index picks it up at the next architecture review) — one owner for the input mode (driving vs UI, `Cursor.visible` today: three writers, six readers); UGUI vs `OnGUI`, the match banner, team colour presentation, the hold's content (TR-camera-cursor-002, TR-hud-001..006, TR-win-condition-014, TR-game-concept-010, TR-cargo-007). Owner, 2026-10-27: write it next, before the epics and stories.
 6. **Master-run AI and room-object behaviour sync** (TR-turrets-002, TR-audio-003) — AI runs on the master; what non-masters see (including a tank's landed state, for its engine sound); hand-over. Planned as an ADR-0003 amendment.
 7. **Balance values and tuning path** (TR-self-destruct-006, TR-turrets-008, TR-cargo-008, TR-win-condition-015, TR-hover-movement-005, TR-camera-cursor-004, TR-deploy-004) — where balance values live and how they are tuned; a short ADR before the balance pass after the playtest.
 

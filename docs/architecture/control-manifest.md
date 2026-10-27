@@ -3,7 +3,7 @@
 > **Engine**: Unity 2017.3.0f3 (C# 4, Mono), PUN Classic 1.88
 > **Last Updated**: 2026-10-27
 > **Manifest Version**: 2026-10-27
-> **ADRs Covered**: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005
+> **ADRs Covered**: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006
 > **Status**: Active — regenerate with `/create-control-manifest update` when ADRs change
 
 `Manifest Version` is the date this manifest was generated. Stories embed it when
@@ -64,6 +64,7 @@ read its ADR.
 - **Compare teams only with `Unit.SameTeam(a, b)`, or compare values that came out of `Unit.NormalizeTeam`; a unit with team `""` belongs to no one** — source: ADR-0003
 - **A deploy is a request to the master: `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID; the master refuses a tank that isn't the sender's, an empty hold, a missing prefab or a match that has ended, deploys the cargo actually on board with the tank's team (every deployed unit, whatever the box's colour; amended 2026-10-27), and empties the hold** — source: ADR-0003
 - **The placement preview is a local, look-only picture with no network identity** — source: ADR-0003
+- **Read the input mode only through `InputMode.Driving`, and change it only through `InputMode.SetUI` / `InputMode.Toggle` (Esc and the respawn flow); never write `Cursor.visible` or `Cursor.lockState` elsewhere (the gameplay test excepted)** — source: ADR-0006
 
 ### Forbidden Approaches
 
@@ -104,7 +105,16 @@ read its ADR.
 
 *Applies to: rendering, audio, UI, VFX*
 
-No Accepted ADR governs this layer yet (architecture review gaps TR-game-concept-010 and TR-win-condition-014/016). The match HUD is a placeholder `OnGUI` overlay (ADR-0004).
+### Required Patterns
+
+- **HUD elements are Unity UI on the `HUDCanvas` (created in code under it where the binary scene would otherwise need editing)** — source: ADR-0006
+- **Clickable HUD panels show only in UI mode (`GUIManager`)** — source: ADR-0006
+
+### Forbidden Approaches
+
+- **Never add HUD elements with `OnGUI`; it is for test and debug overlays only** — `MatchManager.OnGUI` is the one accepted exception until the HUD rework — source: ADR-0006
+
+Audio (TR-win-condition-016, TR-audio-*) has no Accepted ADR yet.
 
 ---
 
