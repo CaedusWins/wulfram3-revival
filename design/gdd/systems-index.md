@@ -35,10 +35,10 @@ step 4a).
 | 10 | Explosions & Splash (`ExplosionPhysicsForce`) | Gameplay | MVP | Implemented; balance question (uncapped splash) and suspected online bug | — | Health |
 | 11 | Targeting (`TargetController`, `TargetInfoController`) | Gameplay | MVP | Implemented (row 9; panel bug known) | — | Teams |
 | 12 | Death & Respawn (`GameManager.Respawn`, `RepairPad`) | Gameplay | MVP | Implemented (row 10); own-team pads only, no-pad wait | [win-condition.md](win-condition.md) | Health, Repair Pads |
-| 13 | Self-Destruct (`selfDestruct`) | Gameplay | MVP | Implemented (row 11); friendly-fire question open | — | Health, Death & Respawn |
-| 14 | Cargo (`CargoManager`, `Cargo`) | Gameplay | MVP | Implemented (row 12); 3 boxes name no prefab | — | Networking |
+| 13 | Self-Destruct (`selfDestruct`) | Gameplay | MVP | Implemented (row 11); designed: enemies only (code to follow) | [self-destruct.md](self-destruct.md) | Health, Death & Respawn |
+| 14 | Cargo (`CargoManager`, `Cargo`) | Gameplay | MVP | Implemented (row 12); designed: BlueCargo → BlueGunTurret, Repair Pad fix (code to follow) | [cargo.md](cargo.md) | Networking |
 | 15 | Deploy / Base Building (`GroundPlacementController`) | Gameplay | MVP | Implemented (row 13) | — | Cargo, Teams |
-| 16 | Turrets (`FlakTurretManager`, `GTManager`) | Gameplay | MVP | Implemented (row 14); SAM turret has no AI | — | Teams, Health |
+| 16 | Turrets (`FlakTurretManager`, `GTManager`) | Gameplay | MVP | Implemented (row 14); designed: splash cap 30 (code to follow); SAM turret has no AI | [turrets.md](turrets.md) | Teams, Health |
 | 17 | Repair Pads (respawn points) | Gameplay | MVP | Implemented (row 10) | — | Deploy, Teams |
 | 18 | Win Condition (`MatchManager`) | Gameplay | MVP | Implemented (gate 6e `win` offline; gate 6c `match` online, two clients; ADR-0004 Accepted) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
 | 19 | Team & Vehicle Selection (inferred) | UI | Vertical Slice | Not Started (spawning assigns teams automatically today) | — | Teams, Networking |
