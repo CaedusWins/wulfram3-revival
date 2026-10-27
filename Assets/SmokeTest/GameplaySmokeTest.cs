@@ -20,12 +20,16 @@ namespace Wulfram.SmokeTest
     ///   pulse    (row 6)  the right mouse button's handler (TryFirePulse): fuelPerPulse spent, reload
     ///                     enforced, the shell hits a real enemy unit (damage), explodes and is removed
     ///   death    (row 10) lethal damage: the tank is dead and its cannon refuses to fire
-    ///   respawn  (row 10) the overhead map + cursor after destroyDelayWhenDead, then a click on a repair
-    ///                     pad (its own OnMouseDown) brings the tank back with full health and fuel
+    ///   respawn  (row 10) the overhead map + cursor after destroyDelayWhenDead; a click on an enemy
+    ///                     pad does nothing, a click on an own-team pad (its own OnMouseDown) brings
+    ///                     the tank back with full health and fuel
     ///   cargo    (rows 12/13) what Q, Z and ',' + click do: pick up a box, drop it, pick it up
-    ///                     again and deploy it as a unit (preview, then the unit, hold emptied)
+    ///                     again and deploy it as a unit (preview, then the unit, hold emptied); a
+    ///                     deployed repair pad takes the deployer's team
     ///   self-destruct (row 11) the V key's handler: the blast damages a nearby enemy and kills the
-    ///                     tank, and respawn works again afterwards
+    ///                     tank; with no own-team pad left the tank stays dead until a teammate's new
+    ///                     pad appears, then it is rebuilt there
+    ///   win      (design/gdd/win-condition.md) victory, no damage after it, the arena reset, a draw
     /// The target is a real enemy prefab (a flak turret from Resources) spawned in front of the tank,
     /// with its turret AI switched off so nothing else changes health or fuel during the checks.
     /// Each phase prints "GAMEPLAY: <phase> PASS|FAIL - details"; the last line is "GAMEPLAY: PASS" or
@@ -196,6 +200,7 @@ namespace Wulfram.SmokeTest
             yield return StartCoroutine(TurretAttacks(me, myUnit));
             yield return StartCoroutine(DeathAndRespawn(me));
             yield return StartCoroutine(SelfDestructAndRespawn(me, myUnit));
+            yield return StartCoroutine(WinCondition());
             Finish();
         }
 
@@ -308,8 +313,8 @@ namespace Wulfram.SmokeTest
             }
             Debug.Log("GAMEPLAY: cargo boxes in the arena: " + boxes.Length + " (" + summary + ")");
             // Deploying creates the unit from Resources by the box's content name, so a content that
-            // names no prefab there can be carried but never deployed. Reported, not failed: it is
-            // scene data, fixed on its own branch (docs/L1-LOCAL-PLAYABILITY.md, row 13).
+            // names no prefab there can be carried but never deployed. Every box must be deployable
+            // (design/gdd/cargo.md: 'Repair Pad' and 'BlueCargo' are corrected when the box loads).
             string undeployable = "";
             foreach (KeyValuePair<string, int> pair in contents)
             {
@@ -319,10 +324,8 @@ namespace Wulfram.SmokeTest
                     undeployable += (undeployable.Length > 0 ? ", " : "") + pair.Key + " x" + pair.Value;
                 }
             }
-            if (undeployable.Length > 0)
-            {
-                Debug.Log("GAMEPLAY: NOTE cargo contents with no prefab in Resources (can't be deployed): " + undeployable);
-            }
+            Check("cargo-contents", undeployable.Length == 0 && boxes.Length > 0,
+                boxes.Length + " boxes, contents with no prefab in Resources (can't be deployed): " + (undeployable.Length == 0 ? "none" : undeployable));
             if (hold == null || gameManager == null || placement == null)
             {
                 Check("cargo-pickup", false, "missing " + (hold == null ? "CargoManager " : "") + (gameManager == null ? "GameManager " : "") +
@@ -395,10 +398,14 @@ namespace Wulfram.SmokeTest
                     dropped = now[i];
                 }
             }
-            Check("cargo-drop", hold.pickedUpCargo == "" && dropped != null && dropped.content == content &&
+            // A room object the reset removes (GameManager.RequestDropCargo).
+            PhotonView droppedView = dropped == null ? null : dropped.GetComponent<PhotonView>();
+            Com.Wulfram3.Unit droppedUnit = dropped == null ? null : dropped.GetComponent<Com.Wulfram3.Unit>();
+            bool droppedRoomOwned = droppedView != null && droppedView.isSceneView && droppedUnit != null && droppedUnit.deployed;
+            Check("cargo-drop", hold.pickedUpCargo == "" && dropped != null && dropped.content == content && droppedRoomOwned &&
                 Vector3.Distance(dropped.transform.position, me.transform.position) < 5f,
                 "hold now '" + hold.pickedUpCargo + "', new box " + (dropped == null ? "NONE" : "'" + dropped.content + "' " +
-                Vector3.Distance(dropped.transform.position, me.transform.position).ToString("0.0") + " m from the tank"));
+                Vector3.Distance(dropped.transform.position, me.transform.position).ToString("0.0") + " m from the tank, room-owned=" + droppedRoomOwned));
 
             // Q again, then ',' and a click.
             gameManager.PickUpCargo(hold);
@@ -416,18 +423,77 @@ namespace Wulfram.SmokeTest
             placement.TogglePlacement();
             yield return StartCoroutine(Wait(0.5f));
             bool previewShown = placement.currentPlaceableObject != null;
+            // The preview is only a picture (architecture review 2, N2): no scripts, colliders, rigidbody
+            // or network identity, so a previewed turret can't act.
+            string previewParts = "";
+            bool previewInert = previewShown;
+            if (previewShown)
+            {
+                int behaviours = placement.currentPlaceableObject.GetComponentsInChildren<MonoBehaviour>(true).Length;
+                int colliders = placement.currentPlaceableObject.GetComponentsInChildren<Collider>(true).Length;
+                int bodies = placement.currentPlaceableObject.GetComponentsInChildren<Rigidbody>(true).Length;
+                int renderers = placement.currentPlaceableObject.GetComponentsInChildren<MeshRenderer>(true).Length;
+                previewInert = behaviours == 0 && colliders == 0 && bodies == 0 && renderers > 0;
+                previewParts = " (scripts " + behaviours + ", colliders " + colliders + ", rigidbodies " + bodies + ", meshes " + renderers + ")";
+            }
             Vector3 deployAt = placement.placeObject == null ? Vector3.zero : placement.placeObject.transform.position;
             placement.Release();
             yield return StartCoroutine(Wait(1f));
             int unitsAfter = CountNamed(unitName);
-            Check("deploy", previewShown && placement.currentPlaceableObject == null && unitsAfter == unitsBefore + 1 && hold.pickedUpCargo == "",
-                "carried '" + content + "': preview shown=" + previewShown + " gone after release=" + (placement.currentPlaceableObject == null) +
+            Check("deploy", previewShown && previewInert && placement.currentPlaceableObject == null && unitsAfter == unitsBefore + 1 && hold.pickedUpCargo == "",
+                "carried '" + content + "': preview shown=" + previewShown + " inert=" + previewInert + previewParts + " gone after release=" + (placement.currentPlaceableObject == null) +
                 ", '" + unitName + "' count " + unitsBefore + " -> " + unitsAfter + " (deployed at " + deployAt + "), hold now '" + hold.pickedUpCargo + "'");
+
+            // deploy-team (design/gdd/win-condition.md): a deployed unit whose prefab has no team takes
+            // the deployer's - the RepairPad prefab has none. Carry a pad, deploy it, check its team,
+            // then remove it so the later phases see the arena's own pads only.
+            Com.Wulfram3.Unit myUnit = me.GetComponent<Com.Wulfram3.Unit>();
+            hold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "RepairPad");
+            // GroundPlacementController.Update reads the hold into baseUnit.
+            yield return StartCoroutine(Wait(0.5f));
+            int ownPadsBefore = RepairPad.Count(myUnit.team);
+            placement.TogglePlacement();
+            yield return StartCoroutine(Wait(0.5f));
+            int ownPadsWithPreview = RepairPad.Count(myUnit.team);
+            placement.Release();
+            yield return StartCoroutine(Wait(1f));
+            RepairPad deployedPad = null;
+            foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+            {
+                if (pad.name == "RepairPad(Clone)")
+                {
+                    deployedPad = pad;
+                }
+            }
+            // Room-owned (ADR-0003): created by the master as a scene object, so the master can destroy it
+            // and it stays when its builder leaves.
+            PhotonView deployedView = deployedPad == null ? null : deployedPad.GetComponent<PhotonView>();
+            bool roomOwned = deployedView != null && deployedView.isSceneView && deployedPad.GetComponent<Com.Wulfram3.Unit>().deployed;
+            Check("deploy-team", deployedPad != null && Com.Wulfram3.Unit.SameTeam(deployedPad.Team, myUnit.team) && roomOwned &&
+                ownPadsWithPreview == ownPadsBefore && RepairPad.Count(myUnit.team) == ownPadsBefore + 1 && hold.pickedUpCargo == "",
+                "deployed 'RepairPad': " + (deployedPad == null ? "NONE" : "team '" + deployedPad.Team + "' room-owned=" + roomOwned) + " (tank team '" + myUnit.team +
+                "'), own-team pads " + ownPadsBefore + " -> " + ownPadsWithPreview + " with the preview (must not count) -> " +
+                RepairPad.Count(myUnit.team) + ", hold now '" + hold.pickedUpCargo + "'");
+            if (deployedPad != null)
+            {
+                PhotonNetwork.Destroy(deployedPad.gameObject);
+                yield return StartCoroutine(Wait(0.5f));
+            }
+
+            // deploy-refused (architecture review 2, N1): the master creates only what the tank carries.
+            // With an empty hold, a deploy request must create nothing.
+            int clonesBefore = CountNamed("RepairPad(Clone)") + CountNamed(unitName);
+            gameManager.DeployUnit(hold, me.transform.position + me.transform.forward * 6f, Quaternion.identity);
+            yield return StartCoroutine(Wait(1f));
+            int clonesAfter = CountNamed("RepairPad(Clone)") + CountNamed(unitName);
+            Check("deploy-refused", hold.pickedUpCargo == "" && clonesAfter == clonesBefore,
+                "a deploy request with an empty hold: deployed units " + clonesBefore + " -> " + clonesAfter + " (must not change)");
         }
 
         // teams (row 14): every unit prefab named Red* must be on team "red" and every Blue* on "blue";
-        // a turret's teamDetect (who it shoots) must be the other team. Nothing assigns teams at
-        // runtime, so the prefab is the truth. Other unit prefabs are listed for the record.
+        // a turret's teamDetect (who it shoots) must be the other team. At runtime only a prefab with
+        // no team gets one (the deployer's, Unit.Awake), so for these the prefab is the truth. Other
+        // unit prefabs are listed for the record.
         private void TeamAudit()
         {
             string[] prefabs = { "RedTank", "PlayerTank", "RedScout", "BlueScout", "RedFlakTurret", "BlueFlakTurret",
@@ -550,9 +616,13 @@ namespace Wulfram.SmokeTest
             }
             yield return StartCoroutine(Wait(1f));
             int healthAfter = myHp.health;
-            Check("turret", ai != null && shellsFired > 0 && bestAim < 10f && healthAfter < healthBefore,
+            // design/gdd/turrets.md: one flak hit does at most 70 (40 direct + splash capped at 30), so a
+            // full-health tank survives it (it used to die to one).
+            const int maxFlakHit = 70;
+            Check("turret", ai != null && shellsFired > 0 && bestAim < 10f && healthAfter < healthBefore &&
+                healthAfter > 0 && healthBefore - healthAfter <= maxFlakHit,
                 "enemy " + prefab + " 25 m away: best aim " + bestAim.ToString("0.0") + " deg off the tank, flak shells fired " + shellsFired +
-                ", tank health " + healthBefore + " -> " + healthAfter);
+                ", tank health " + healthBefore + " -> " + healthAfter + " (one hit: alive, at most " + maxFlakHit + " damage)");
             if (turret != null)
             {
                 PhotonNetwork.Destroy(turret);
@@ -649,50 +719,112 @@ namespace Wulfram.SmokeTest
             yield return StartCoroutine(Respawn("respawn", me));
         }
 
-        // Respawn (row 10): destroyDelayWhenDead after death the game shows the overhead map with the
-        // cursor so the player can click a repair pad (GameManager.Respawn); with no pad in the arena it
-        // respawns the tank at the arena centre itself. The click is RepairPad's own OnMouseDown
-        // handler (sent as a message - Unity 2017 can't fake a mouse click). After it the tank must be
-        // alive at the pad, with full health and fuel, back in the normal camera with the cursor hidden.
+        // Respawn (row 10, design/gdd/win-condition.md): destroyDelayWhenDead after death the game shows
+        // the overhead map with the cursor (GameManager.Respawn). With an own-team repair pad the
+        // player clicks it - RepairPad's own OnMouseDown handler, sent as a message (Unity 2017 can't
+        // fake a mouse click) - and a click on an enemy pad first must do nothing. With no own-team pad
+        // the player must stay dead on the map (it used to respawn at the arena centre), the rule must
+        // not end the match while it isn't armed (a lone player), and when a teammate deploys a pad -
+        // created here the way GroundPlacementController.Release does - the game must rebuild the tank
+        // there by itself within 2 s. Either way the tank must end up alive at the pad, with full
+        // health and fuel, back in the normal camera with the cursor hidden.
         private IEnumerator Respawn(string phase, GameObject me)
         {
             Com.Wulfram3.HitPointsManager hp = me.GetComponent<Com.Wulfram3.HitPointsManager>();
             Com.Wulfram3.PlayerMovementManager movement = me.GetComponent<Com.Wulfram3.PlayerMovementManager>();
             Com.Wulfram3.FuelManager fuel = me.GetComponent<Com.Wulfram3.FuelManager>();
             Com.Wulfram3.GameManager gameManager = FindObjectOfType<Com.Wulfram3.GameManager>();
-            RepairPad[] pads = FindObjectsOfType<RepairPad>();
+            string myTeam = me.GetComponent<Com.Wulfram3.Unit>().team;
+            RepairPad own = RepairPad.FindNearestOwn(movement);
+            RepairPad enemy = null;
+            foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+            {
+                if (!pad.BuildsFor(movement) && Com.Wulfram3.Unit.NormalizeTeam(pad.Team) != "")
+                {
+                    enemy = pad;
+                }
+            }
             float deadSince = Time.realtimeSinceStartup;
             float until = deadSince + movement.destroyDelayWhenDead + 5f;
-            Vector3 expected;
-            if (pads.Length > 0)
+            while (!(gameManager.overheadCamera.enabled && !gameManager.normalCamera.enabled) && Time.realtimeSinceStartup < until)
             {
-                while (!(gameManager.overheadCamera.enabled && !gameManager.normalCamera.enabled) && Time.realtimeSinceStartup < until)
+                yield return null;
+            }
+            bool view = gameManager.overheadCamera.enabled && !gameManager.normalCamera.enabled && Cursor.visible;
+            Check(phase + "-view", view, "after " + (Time.realtimeSinceStartup - deadSince).ToString("0.0") + " s dead: overhead camera=" +
+                gameManager.overheadCamera.enabled + " normal camera=" + gameManager.normalCamera.enabled +
+                " cursorVisible=" + Cursor.visible + ", own-team ('" + myTeam + "') pads: " + RepairPad.Count(myTeam) +
+                ", enemy pad: " + (enemy == null ? "none" : "'" + enemy.name + "' team '" + enemy.Team + "'"));
+            Vector3 expected;
+            if (own != null)
+            {
+                if (enemy != null)
                 {
-                    yield return null;
+                    enemy.SendMessage("OnMouseDown");
+                    yield return StartCoroutine(Wait(1f));
+                    Check(phase + "-enemy-pad", movement.isDead, "clicked the enemy pad '" + enemy.name + "': isDead=" + movement.isDead + " (must stay dead)");
                 }
-                bool view = gameManager.overheadCamera.enabled && !gameManager.normalCamera.enabled && Cursor.visible;
-                Check(phase + "-view", view, "after " + (Time.realtimeSinceStartup - deadSince).ToString("0.0") + " s dead: overhead camera=" +
-                    gameManager.overheadCamera.enabled + " normal camera=" + gameManager.normalCamera.enabled +
-                    " cursorVisible=" + Cursor.visible + ", repair pads in arena: " + pads.Length);
-                RepairPad pad = pads[0];
-                for (int i = 1; i < pads.Length; i++)
-                {
-                    if (Vector3.Distance(pads[i].transform.position, me.transform.position) < Vector3.Distance(pad.transform.position, me.transform.position))
-                    {
-                        pad = pads[i];
-                    }
-                }
-                expected = pad.transform.position + new Vector3(0f, 5f, 0f);
-                pad.SendMessage("OnMouseDown");
+                expected = own.transform.position + new Vector3(0f, 5f, 0f);
+                own.SendMessage("OnMouseDown");
             }
             else
             {
-                expected = new Vector3(0f, 5f, 0f);
-                while (movement.isDead && Time.realtimeSinceStartup < until)
+                // Past at least one more GameManager.Respawn call.
+                float watchUntil = Time.realtimeSinceStartup + movement.destroyDelayWhenDead + 2f;
+                bool stayedDead = true;
+                while (Time.realtimeSinceStartup < watchUntil)
+                {
+                    stayedDead = stayedDead && movement.isDead;
+                    yield return null;
+                }
+                Check(phase + "-no-pad", stayedDead && gameManager.WaitingForPad && gameManager.overheadCamera.enabled,
+                    "no own-team pad: stayed dead for " + (Time.realtimeSinceStartup - deadSince).ToString("0.0") + " s=" + stayedDead +
+                    ", waiting for a pad=" + gameManager.WaitingForPad + ", overhead camera=" + gameManager.overheadCamera.enabled);
+                Com.Wulfram3.MatchManager match = Com.Wulfram3.MatchManager.Instance;
+                Check(phase + "-lone-player", match != null && match.state == Com.Wulfram3.MatchManager.State.Waiting &&
+                    match.result == Com.Wulfram3.MatchManager.Result.None,
+                    "one team only, own team with no pads and no living tank: match " + (match == null ? "MISSING" : "state=" + match.state + " result=" + match.result) +
+                    " (must be Waiting, no result)");
+
+                Vector3 spot = me.transform.position + Vector3.ProjectOnPlane(me.transform.forward, Vector3.up).normalized * 8f;
+                if (Terrain.activeTerrain != null)
+                {
+                    spot.y = Terrain.activeTerrain.SampleHeight(spot) + Terrain.activeTerrain.transform.position.y;
+                }
+                // The deploy path a teammate's ',' + click takes (GameManager.DeployUnit): a pad in the
+                // hold, then the request; this tank stands in for the teammate.
+                Com.Wulfram3.CargoManager hold = me.GetComponent<Com.Wulfram3.CargoManager>();
+                hold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "RepairPad");
+                float padAt = Time.realtimeSinceStartup;
+                gameManager.DeployUnit(hold, spot, Quaternion.identity);
+                GameObject newPad = null;
+                while (newPad == null && Time.realtimeSinceStartup < padAt + 5f)
+                {
+                    foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+                    {
+                        if (pad.GetComponent<Com.Wulfram3.Unit>().deployed && Vector3.Distance(pad.transform.position, spot) < 1f)
+                        {
+                            newPad = pad.gameObject;
+                        }
+                    }
+                    if (newPad == null)
+                    {
+                        yield return null;
+                    }
+                }
+                if (newPad == null)
+                {
+                    Check(phase + "-new-pad", false, "the teammate's pad was never created");
+                    yield break;
+                }
+                while (movement.isDead && Time.realtimeSinceStartup < padAt + 5f)
                 {
                     yield return null;
                 }
-                Debug.Log("GAMEPLAY: no repair pad in the arena - the game respawns the tank at the centre itself");
+                float took = Time.realtimeSinceStartup - padAt;
+                Check(phase + "-new-pad", !movement.isDead && took <= 2f,
+                    "a teammate's new pad (team '" + newPad.GetComponent<RepairPad>().Team + "'): rebuilt after " + took.ToString("0.0") + " s (at most 2 s)");
+                expected = newPad.transform.position + new Vector3(0f, 5f, 0f);
             }
             yield return StartCoroutine(Wait(1f));
             float offset = Vector3.Distance(new Vector3(me.transform.position.x, 0f, me.transform.position.z), new Vector3(expected.x, 0f, expected.z));
@@ -738,12 +870,12 @@ namespace Wulfram.SmokeTest
             int victimBefore = victimHp == null ? -1 : victimHp.health;
             float distance = Vector3.Distance(victim.transform.position, me.transform.position);
 
-            // Friendly units in range too: the blast damages every HitPointsManager in its sphere,
-            // whatever its team (the first run lost one of the two repair pads - the tank had just
-            // respawned on it). Recorded, not judged: whether that is intended is a design question.
+            // Every other unit in range. The blast hits enemies only (design/gdd/self-destruct.md): the
+            // first runs lost the player's own repair pad here (the tank had just respawned on it).
             List<Com.Wulfram3.HitPointsManager> nearby = new List<Com.Wulfram3.HitPointsManager>();
             List<int> nearbyBefore = new List<int>();
             List<string> nearbyNames = new List<string>();
+            List<bool> nearbyFriendly = new List<bool>();
             Com.Wulfram3.HitPointsManager[] all = FindObjectsOfType<Com.Wulfram3.HitPointsManager>();
             for (int i = 0; i < all.Length; i++)
             {
@@ -753,11 +885,13 @@ namespace Wulfram.SmokeTest
                     nearby.Add(all[i]);
                     nearbyBefore.Add(all[i].health);
                     Com.Wulfram3.Unit unit = all[i].GetComponent<Com.Wulfram3.Unit>();
+                    nearbyFriendly.Add(unit != null && Com.Wulfram3.Unit.NormalizeTeam(unit.team) != "" && Com.Wulfram3.Unit.SameTeam(unit.team, myUnit.team));
                     nearbyNames.Add("'" + all[i].name + "' team=" + (unit == null ? "?" : unit.team) + " " +
                         Vector3.Distance(all[i].transform.position, me.transform.position).ToString("0.0") + " m away");
                 }
             }
 
+            Vector3 victimPos = victim.transform.position;
             destruct.Trigger();
             float armed = Time.realtimeSinceStartup;
             float until = armed + 20f;
@@ -772,15 +906,168 @@ namespace Wulfram.SmokeTest
                 "blast " + blastAfter.ToString("0.0") + " s after arming, tank isDead=" + movement.isDead +
                 "; enemy turret " + distance.ToString("0.0") + " m away (radius " + destruct.sphereRadius + "): " +
                 (victim == null ? "destroyed" : "health " + victimBefore + " -> " + (victimHp == null ? "?" : victimHp.health.ToString())));
+            // The blast itself must not touch a friendly unit. When it destroys the enemy turret, the
+            // master spawns that turret's death explosion, whose splash (ExplosionPhysicsForce,
+            // min(splashCap, 3 x force / distance)) hits every unit near it, friend or foe: that loss,
+            // computed from each unit's distance to the turret, is allowed - and nothing more.
+            Com.Wulfram3.GameManager gm = FindObjectOfType<Com.Wulfram3.GameManager>();
+            UnityStandardAssets.Effects.ExplosionPhysicsForce boom = gm == null || gm.explosionPrefab == null ? null :
+                gm.explosionPrefab.GetComponent<UnityStandardAssets.Effects.ExplosionPhysicsForce>();
+            int friendlyInRange = 0;
+            bool friendsUnhurt = true;
+            string friends = "";
             for (int i = 0; i < nearby.Count; i++)
             {
-                Debug.Log("GAMEPLAY: blast also hit " + nearbyNames[i] + ": health " + nearbyBefore[i] + " -> " +
-                    (nearby[i] == null ? "destroyed" : nearby[i].health.ToString()));
+                string after = nearby[i] == null ? "destroyed" : nearby[i].health.ToString();
+                Debug.Log("GAMEPLAY: in blast range " + nearbyNames[i] + (nearbyFriendly[i] ? " (friendly)" : "") + ": health " + nearbyBefore[i] + " -> " + after);
+                if (nearbyFriendly[i])
+                {
+                    friendlyInRange++;
+                    int chainSplash = 0;
+                    if (victim == null && boom != null && nearby[i] != null)
+                    {
+                        float d = Vector3.Distance(nearby[i].transform.position, victimPos);
+                        chainSplash = (int)Mathf.Min(boom.splashCap, boom.explosionForce * 3f / Mathf.Max(d, 0.001f));
+                    }
+                    friendsUnhurt = friendsUnhurt && nearby[i] != null && nearbyBefore[i] - nearby[i].health <= chainSplash;
+                    friends += (friends.Length > 0 ? ", " : "") + nearbyNames[i] + " " + nearbyBefore[i] + " -> " + after +
+                        " (allowed: the destroyed turret's splash " + chainSplash + ")";
+                }
             }
+            // The tank respawned on its own pad, so at least that pad is in range.
+            Check("self-destruct-friendly", friendlyInRange > 0 && friendsUnhurt,
+                friendlyInRange + " friendly unit(s) in range, all unhurt=" + friendsUnhurt + " [" + friends + "]");
             if (movement.isDead)
             {
+                // The enemy takes out whatever own-team pads the blast left, so the respawn below runs
+                // with none (design/gdd/win-condition.md: no pad, no respawn).
+                int finished = DestroyPads(myUnit.team);
+                Debug.Log("GAMEPLAY: own-team pads left after the blast, destroyed by the test: " + finished);
+                yield return StartCoroutine(Wait(0.5f));
                 yield return StartCoroutine(Respawn("respawn-after-self-destruct", me));
             }
+        }
+
+        // Lethal damage, through the master, to every repair pad of the team; returns how many.
+        private static int DestroyPads(string team)
+        {
+            int count = 0;
+            foreach (RepairPad pad in FindObjectsOfType<RepairPad>())
+            {
+                Com.Wulfram3.HitPointsManager hp = pad.GetComponent<Com.Wulfram3.HitPointsManager>();
+                if (hp != null && Com.Wulfram3.Unit.NormalizeTeam(pad.Team) != "" && Com.Wulfram3.Unit.SameTeam(pad.Team, team))
+                {
+                    hp.TellServerTakeDamage(hp.maxHealth);
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        // win condition (design/gdd/win-condition.md). Offline there is no second team, so the test
+        // arms the rule (MatchManager.ArmWithoutOpponents) and plays the enemy.
+        //   victory  the other team's last pad goes (it has no tanks): within 2 s the master announces
+        //            this tank's team as the winner (VICTORY here), and damage is ignored until the reset
+        //   reset    announceSeconds later the arena is reloaded: a new tank, alive with full health
+        //            and fuel, one starting pad per team again, units deployed this match gone, the
+        //            rule armed again
+        //   draw     every pad of both teams and this tank go at the same moment: DRAW
+        private IEnumerator WinCondition()
+        {
+            Com.Wulfram3.MatchManager match = Com.Wulfram3.MatchManager.Instance;
+            GameObject me = Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance;
+            if (match == null || me == null)
+            {
+                Check("match-armed", false, (match == null ? "no MatchManager in the arena (GameManager.Start adds it) " : "") + (me == null ? "no player tank" : ""));
+                yield break;
+            }
+            string myTeam = Com.Wulfram3.Unit.NormalizeTeam(me.GetComponent<Com.Wulfram3.Unit>().team);
+            string enemyTeam = myTeam == "red" ? "blue" : "red";
+            Com.Wulfram3.MatchManager.Result myWin = myTeam == "red" ? Com.Wulfram3.MatchManager.Result.RedWins : Com.Wulfram3.MatchManager.Result.BlueWins;
+            Com.Wulfram3.MatchManager.ArmWithoutOpponents = true;
+            match.announceSeconds = 6f;
+            float until = Time.realtimeSinceStartup + 3f;
+            while (match.state != Com.Wulfram3.MatchManager.State.Playing && Time.realtimeSinceStartup < until)
+            {
+                yield return null;
+            }
+            Check("match-armed", match.state == Com.Wulfram3.MatchManager.State.Playing && match.result == Com.Wulfram3.MatchManager.Result.None,
+                "state=" + match.state + " result=" + match.result + "; " + MatchCounts(match));
+
+            // victory
+            string deployed = "BlueFlakTurret(Clone)";
+            int deployedBefore = CountNamed(deployed);
+            int enemyPads = DestroyPads(enemyTeam);
+            float destroyedAt = Time.realtimeSinceStartup;
+            while (match.state != Com.Wulfram3.MatchManager.State.Ended && Time.realtimeSinceStartup < destroyedAt + 5f)
+            {
+                yield return null;
+            }
+            float took = Time.realtimeSinceStartup - destroyedAt;
+            Check("victory", match.state == Com.Wulfram3.MatchManager.State.Ended && match.result == myWin &&
+                match.ResultFor(myTeam) == "VICTORY" && took <= 2f,
+                "destroyed the " + enemyTeam + " team's " + enemyPads + " pad(s): state=" + match.state + " result=" + match.result +
+                " ('" + match.ResultFor(myTeam) + "' for this " + myTeam + " tank) after " + took.ToString("0.0") + " s (at most 2 s); " + MatchCounts(match));
+            Com.Wulfram3.HitPointsManager myHp = me.GetComponent<Com.Wulfram3.HitPointsManager>();
+            int healthBefore = myHp.health;
+            myHp.TellServerTakeDamage(30);
+            yield return StartCoroutine(Wait(0.5f));
+            Check("match-over-no-damage", myHp.health == healthBefore, "30 damage after the result: health " + healthBefore + " -> " + myHp.health + " (must not change)");
+
+            // reset
+            float endedAt = Time.realtimeSinceStartup;
+            float announce = match.announceSeconds;
+            until = endedAt + announce + 20f;
+            while (Time.realtimeSinceStartup < until && (Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance == null ||
+                Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance == me || Com.Wulfram3.MatchManager.Instance == null ||
+                Com.Wulfram3.MatchManager.Instance == match))
+            {
+                yield return null;
+            }
+            float resetAfter = Time.realtimeSinceStartup - endedAt;
+            // Let the new tank's Start() run and the rule re-arm.
+            yield return StartCoroutine(Wait(3f));
+            GameObject fresh = Com.Wulfram3.PlayerMovementManager.LocalPlayerInstance;
+            Com.Wulfram3.MatchManager next = Com.Wulfram3.MatchManager.Instance;
+            Com.Wulfram3.HitPointsManager freshHp = fresh == null ? null : fresh.GetComponent<Com.Wulfram3.HitPointsManager>();
+            Com.Wulfram3.FuelManager freshFuel = fresh == null ? null : fresh.GetComponent<Com.Wulfram3.FuelManager>();
+            Com.Wulfram3.Unit freshUnit = fresh == null ? null : fresh.GetComponent<Com.Wulfram3.Unit>();
+            bool tankOk = fresh != null && freshHp != null && freshHp.health == freshHp.maxHealth && (freshFuel == null || freshFuel.fuel == freshFuel.maxFuel) &&
+                freshUnit != null && Com.Wulfram3.Unit.SameTeam(freshUnit.team, myTeam);
+            bool arenaOk = RepairPad.Count("red") == 1 && RepairPad.Count("blue") == 1 && CountNamed("RepairPad(Clone)") == 0 && CountNamed(deployed) == 0;
+            bool matchOk = next != null && next.state == Com.Wulfram3.MatchManager.State.Playing && next.result == Com.Wulfram3.MatchManager.Result.None;
+            Check("reset", tankOk && arenaOk && matchOk && resetAfter >= announce - 0.5f,
+                "after " + resetAfter.ToString("0.0") + " s (announceSeconds " + announce + "): new tank " + (fresh == null ? "NONE" :
+                "team '" + (freshUnit == null ? "?" : freshUnit.team) + "' health " + (freshHp == null ? "?" : freshHp.health + "/" + freshHp.maxHealth) +
+                " fuel " + (freshFuel == null ? "?" : freshFuel.fuel + "/" + freshFuel.maxFuel)) + "; pads red " + RepairPad.Count("red") + " blue " + RepairPad.Count("blue") +
+                ", deployed pads " + CountNamed("RepairPad(Clone)") + ", '" + deployed + "' " + deployedBefore + " -> " + CountNamed(deployed) +
+                "; match " + (next == null ? "MISSING" : "state=" + next.state + " result=" + next.result));
+            if (fresh == null || next == null || freshHp == null)
+            {
+                Com.Wulfram3.MatchManager.ArmWithoutOpponents = false;
+                yield break;
+            }
+
+            // draw
+            int redPads = DestroyPads("red");
+            int bluePads = DestroyPads("blue");
+            freshHp.TellServerTakeDamage(freshHp.maxHealth);
+            float wipedAt = Time.realtimeSinceStartup;
+            while (next.state != Com.Wulfram3.MatchManager.State.Ended && Time.realtimeSinceStartup < wipedAt + 5f)
+            {
+                yield return null;
+            }
+            Check("draw", next.state == Com.Wulfram3.MatchManager.State.Ended && next.result == Com.Wulfram3.MatchManager.Result.Draw &&
+                next.ResultFor(myTeam) == "DRAW",
+                "destroyed " + redPads + " red and " + bluePads + " blue pad(s) and this tank together: state=" + next.state + " result=" + next.result +
+                " ('" + next.ResultFor(myTeam) + "') after " + (Time.realtimeSinceStartup - wipedAt).ToString("0.0") + " s");
+            Com.Wulfram3.MatchManager.ArmWithoutOpponents = false;
+        }
+
+        private static string MatchCounts(Com.Wulfram3.MatchManager match)
+        {
+            return "red pads " + match.redPads + " tanks " + match.redTanks + " (alive " + match.redTanksAlive + "), blue pads " +
+                match.bluePads + " tanks " + match.blueTanks + " (alive " + match.blueTanksAlive + ")";
         }
 
         private IEnumerator CannonFuelDestroy(GameObject me, Com.Wulfram3.Unit myUnit)

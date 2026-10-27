@@ -54,12 +54,12 @@ None. The one blocker, an unconfigured engine whose reference pointed at Unity 6
 ### 3a. Register existing requirements (creates tr-registry.yaml)
 Run `/architecture-review`. It bootstraps the TR registry from the GDDs and ADRs (after Steps 2 and 4b).
 **Time**: 1 session
-- [ ] tr-registry.yaml created
+- [x] tr-registry.yaml created (28 TR-IDs; architecture reviews #1 FAIL → fixed, #2 CONCERNS with no blockers)
 
 ### 3b. Create control manifest
 Run `/create-control-manifest`
 **Time**: 30 min
-- [ ] docs/architecture/control-manifest.md created
+- [x] docs/architecture/control-manifest.md created (from ADR-0001..0005)
 
 ### 3c. Create sprint tracking file
 Run `/sprint-plan new`. The first sprint is the rest of L1: owner playtest rows 3/4/13/17/18, the three design calls, and the cargo-name fix.
@@ -82,11 +82,12 @@ cargo (what `BlueCargo` deploys).
 
 ### 4b. ADRs for decisions already made
 `/architecture-decision retrofit` for each decision recorded in `CLAUDE.md`:
-- [ ] Stay on Unity 2017.3 until a deliberate engine step
-- [ ] PUN Classic 1.88 on Photon Cloud (PUN2 deferred); App ID kept out of git
-- [ ] Local first: L1 before more online work
-- [ ] Branch model and merge policy (merge commits, fresh-clone gate, protected dev/master)
-- [ ] Team comparison through `Unit.SameTeam`; damage only through the master (`TellServerTakeDamage`)
+- [x] Stay on Unity 2017.3 until a deliberate engine step — ADR-0001 (Accepted)
+- [x] PUN Classic 1.88 on Photon Cloud (PUN2 deferred); App ID kept out of git — ADR-0002 (Accepted)
+- [x] Local first: L1 before more online work — in ADR-0005 (an ordering rule, not architecture)
+- [x] Branch model and merge policy (merge commits, fresh-clone gate, protected dev/master) — ADR-0005 (Accepted)
+- [x] Team comparison through `Unit.SameTeam`; damage only through the master (`TellServerTakeDamage`) — ADR-0003 (Accepted)
+- [x] Added: match flow (as built in #33, C1 fix #36) — ADR-0004 (Accepted 2026-10-26)
 
 ### 4c. L1 as an epic with stories
 `/create-epics` and `/create-stories` from `docs/L1-LOCAL-PLAYABILITY.md`. Its 20 rows are already

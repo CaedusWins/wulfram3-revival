@@ -278,7 +278,7 @@ smoke_gameplay() {
   timeout 300 "$player" -batchmode -offlinePlay -gameplaySmokeTest > "$log" 2>&1
   tr -d '\r' < "$log" | grep -E '^GAMEPLAY: ((setup|aim|cannon|fuel|destroy|pulse|cargo-pickup|cargo-drop|deploy|teams|turret|death|respawn[a-z-]*|self-destruct) (PASS|FAIL)|NOTE|exceptions=|problem)' | sed 's/^/        /'
   if tr -d '\r' < "$log" | grep -q '^GAMEPLAY: PASS$'; then
-    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, teams, turret, death, respawn, self-destruct)$(run_label "$1")"
+    pass "gameplay (aim, cannon, fuel, destroy, pulse, cargo, deploy, teams, turret, death, respawn, self-destruct, win; design calls)$(run_label "$1")"
   else
     fail "gameplay$(run_label "$1") - see $log"
   fi
@@ -299,7 +299,7 @@ online_pair() {
   wait "$pidA"
   wait "$pidB"
   for l in "$logA" "$logB"; do
-    grep -E '^(PhotonCloud|SMOKE: (damage|regen|barrier|problem))' "$l" | tr -d '\r' | sed 's/^/        /'
+    grep -E '^(PhotonCloud|SMOKE: (damage|regen|match|barrier|problem))' "$l" | tr -d '\r' | sed 's/^/        /'
   done
   roomA=$(grep -oE 'room=[^ ]+' "$logA" | head -1 | tr -d '\r')
   roomB=$(grep -oE 'room=[^ ]+' "$logB" | head -1 | tr -d '\r')
@@ -308,7 +308,7 @@ online_pair() {
   if grep -q '^PhotonCloud: no Photon App ID' "$logA"; then
     fail "online M2$(run_label "$1") - no Photon App ID (Assets/Resources/PhotonAppId.local.txt or WULFRAM_PHOTON_APPID)"
   elif [ "$verdictA" = "SMOKE: PASS" ] && [ "$verdictB" = "SMOKE: PASS" ] && [ -n "$roomA" ] && [ "$roomA" = "$roomB" ]; then
-    pass "online M2$(run_label "$1"): two clients in one Photon Cloud room ($roomA), damage both ways, regen"
+    pass "online M2$(run_label "$1"): two clients in one Photon Cloud room ($roomA), damage both ways, regen, match end + reset"
   else
     fail "online M2$(run_label "$1") - client A '${verdictA:-no result}', client B '${verdictB:-no result}', rooms '${roomA}' / '${roomB}' - see $logA and $logB"
   fi

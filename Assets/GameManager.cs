@@ -125,7 +125,10 @@ namespace Com.Wulfram3
 
                 Debug.Log("Number of Red players: " + redPlayers);
                 Debug.Log("Number of Blue players: " + bluePlayers);
-                if (bluePlayers > redPlayers) {
+                // A player who already has a team (the arena was reset after a match,
+                // MatchManager.ResetArena) keeps it; the counts include that player.
+                PunTeams.Team myTeam = PhotonNetwork.player.GetTeam();
+                if (myTeam == PunTeams.Team.red || (myTeam != PunTeams.Team.blue && bluePlayers > redPlayers)) {
                     Debug.Log("Spawn red tank");
                     Transform selectedSpawnPoint = spawnPointsRed[0];
                     GameObject player = PhotonNetwork.Instantiate("RedTank", selectedSpawnPoint.position, selectedSpawnPoint.rotation, 0);
@@ -145,6 +148,13 @@ namespace Com.Wulfram3
             normalCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
             overheadCamera = GameObject.FindGameObjectWithTag("OverheadCamera").GetComponent<Camera>();
             overheadCamera.enabled = false; //set disabled so that it does't render in the background
+
+            // The win condition (design/gdd/win-condition.md). Added here, not in the binary scene;
+            // its RPCs go through this object's PhotonView.
+            if (GetComponent<MatchManager>() == null) {
+                gameObject.AddComponent<MatchManager>();
+                photonView.RefreshRpcMonoBehaviourCache();
+            }
         }
 
         [PunRPC]
@@ -301,26 +311,50 @@ namespace Com.Wulfram3
             return masterClient + username;
         }
 
+        // Set by Respawn when the dead local player's team had no repair pad: Update watches for one
+        // (a teammate deploying it) and builds the tank there.
+        private bool waitingForPad;
+        private float nextPadCheck;
+
+        public bool WaitingForPad
+        {
+            get { return waitingForPad; }
+        }
+
+        // Called every destroyDelayWhenDead while the local player is dead. Only your own team's
+        // repair pads build you a new tank (the manual: "as long as there is a RepairPad to build it
+        // for you"); you pick one on the overhead map. With none left you wait there until a
+        // teammate deploys one. This used to respawn you at the arena centre, which made a team
+        // impossible to eliminate (design/gdd/win-condition.md).
         public void Respawn(PlayerMovementManager player)
         {
+            overheadCamera.enabled = true;
+            normalCamera.enabled = false;
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            waitingForPad = RepairPad.FindNearestOwn(player) == null;
+        }
 
-
-            Vector3 spawnPos = new Vector3(0f, 5f, 0f);
-            Quaternion spawnRotation = Quaternion.identity;
-
-            if (FindObjectOfType<RepairPad>() != null)
+        public void Update()
+        {
+            if (!waitingForPad || Time.time < nextPadCheck)
             {
-                // TODO: Player will have to hope that all repair pads don't die by the time they click.
-                overheadCamera.enabled = true;
-                normalCamera.enabled = false;
-                Cursor.visible = true;
-                Cursor.lockState = CursorLockMode.None;
+                return;
             }
-            else
+            nextPadCheck = Time.time + 0.25f;
+            GameObject me = PlayerMovementManager.LocalPlayerInstance;
+            PlayerMovementManager player = me == null ? null : me.GetComponent<PlayerMovementManager>();
+            if (player == null || !player.isDead)
             {
-                RepairPad.Spawn(this, player, Vector3.zero);
+                waitingForPad = false;
+                return;
             }
-
+            RepairPad pad = RepairPad.FindNearestOwn(player);
+            if (pad != null)
+            {
+                waitingForPad = false;
+                RepairPad.Spawn(this, player, pad.transform.position);
+            }
         }
 
         // Cargo RPCs carry the tank's PhotonView ID, not the CargoManager itself: PUN can't send a
@@ -394,13 +428,46 @@ namespace Com.Wulfram3
                     return;
                 }
                 cargoManager.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
-                GameObject go = PhotonNetwork.Instantiate(cargoPrefab.name, cargoManager.transform.position, Quaternion.identity, 0);
+                // A room object, like a deployed unit (RequestDeploy): it stays when the master leaves,
+                // and the arena reset removes it (instantiation data marks it Unit.deployed).
+                GameObject go = PhotonNetwork.InstantiateSceneObject(cargoPrefab.name, cargoManager.transform.position, Quaternion.identity, 0, new object[] { "" });
                 go.GetComponent<Cargo>().photonView.RPC("SetContent", PhotonTargets.All, pickedUpCargo);
             }
         }
 
         public void DropCargo(CargoManager cargoManager) {
             photonView.RPC("RequestDropCargo", PhotonTargets.MasterClient, cargoManager.photonView.viewID);
+        }
+
+        // Deployed units belong to the room, not to the player who deployed them (ADR-0003): the master
+        // creates them as scene objects, so the master can destroy them at 0 health (PUN refuses to
+        // network-destroy another active player's object) and they stay when their builder leaves (PUN
+        // removes a leaving player's own objects). The team travels as instantiation data (Unit.Awake).
+        public void DeployUnit(CargoManager cargoManager, Vector3 position, Quaternion rotation) {
+            photonView.RPC("RequestDeploy", PhotonTargets.MasterClient, cargoManager.photonView.viewID, position, rotation);
+        }
+
+        // The request names only the tank; the master takes the unit from the cargo actually on board
+        // and the team from the tank, and refuses a tank that isn't the sender's, an empty hold or a
+        // unit with no prefab, and anything between a match's end and the reset (a request sent just
+        // before the reset finds its old tank gone). It used to create whatever a client named
+        // (architecture review 2, N1/N4).
+        [PunRPC]
+        public void RequestDeploy(int cargoManagerViewId, Vector3 position, Quaternion rotation, PhotonMessageInfo info) {
+            if (!PhotonNetwork.isMasterClient || MatchManager.DamageBlocked) {
+                return;
+            }
+            CargoManager cargoManager = FindCargoManager(cargoManagerViewId);
+            if (cargoManager == null || info.sender == null || cargoManager.photonView.ownerId != info.sender.ID) {
+                return;
+            }
+            string unitName = cargoManager.pickedUpCargo;
+            Unit tank = cargoManager.GetComponent<Unit>();
+            if (unitName == "" || tank == null || Resources.Load<GameObject>(unitName) == null) {
+                return;
+            }
+            cargoManager.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
+            PhotonNetwork.InstantiateSceneObject(unitName, position, rotation, 0, new object[] { tank.team });
         }
 
         #endregion

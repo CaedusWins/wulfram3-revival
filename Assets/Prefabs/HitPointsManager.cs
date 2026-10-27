@@ -14,7 +14,8 @@ namespace Com.Wulfram3 {
 
         [PunRPC]
         public void TakeDamage(int amount) {
-            if (PhotonNetwork.isMasterClient) {
+            // No damage between the end of a match and the arena reset.
+            if (PhotonNetwork.isMasterClient && !MatchManager.DamageBlocked) {
                 int newHealth = Mathf.Clamp(health - amount, 0, maxHealth);
                 SetHealth(newHealth);
             }

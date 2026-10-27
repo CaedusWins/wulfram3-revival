@@ -48,7 +48,7 @@ new pad, if it has a living tank to do it.
    one). **The arena-centre fallback (`GameManager.Respawn` → `RepairPad.Spawn(…, Vector3.zero)`) is
    removed.**
 4. **Elimination.** A team is **eliminated** when it has **zero repair pads and zero living tanks**.
-   A tank counts as living when `PlayerMovementManager.isDead` is false. Scouts count as tanks once
+   A tank counts as living while its health is above 0 (what `PlayerMovementManager.isDead` is computed from). Scouts count as tanks once
    they exist (they don't spawn yet).
 5. **Victory.** When exactly one team is eliminated, the other team wins. If both are eliminated in
    the same check (e.g. by a self-destruct), the match is a **draw**.
@@ -68,7 +68,7 @@ new pad, if it has a living tank to do it.
 | State | Meaning | Transitions |
 |---|---|---|
 | **Waiting** | Fewer than one player per team | → Playing when both teams have ≥ 1 player |
-| **Playing** | The rule is checked (on the master, on every change in pads or deaths, plus once a second) | → Ended when one or both teams are eliminated; → Waiting if a team's last player leaves |
+| **Playing** | The rule is checked (every `checkIntervalSeconds` on every client for the HUD; only the master acts on it) | → Ended when one or both teams are eliminated; → Waiting if a team's last player leaves |
 | **Ended** | Banner shown to everyone (Victory / Defeat / Draw); input still allowed but damage ignored | → Resetting after the announcement time |
 | **Resetting** | The master restores the arena and respawns everyone | → Playing (or Waiting if a team is now empty) |
 
@@ -86,8 +86,8 @@ new pad, if it has a living tank to do it.
 Elimination, evaluated on the master for each team `T`:
 
 ```text
-padsAlive(T)  = count of RepairPad units with SameTeam(team, T) and health > 0
-tanksAlive(T) = count of player tanks on T with isDead == false
+padsAlive(T)  = count of RepairPad units with SameTeam(team, T) still in the arena (the master removes a pad at 0 health)
+tanksAlive(T) = count of player tanks on T with health > 0
 eliminated(T) = armed AND padsAlive(T) == 0 AND tanksAlive(T) == 0
 ```
 
@@ -118,7 +118,7 @@ both are eliminated.
 | Knob | Default | Range | Notes |
 |---|---|---|---|
 | `announceSeconds` | 15 | 5–60 | Time from the result to the reset |
-| `checkIntervalSeconds` | 1 | 0.2–5 | Fallback periodic check (event-driven checks too) |
+| `checkIntervalSeconds` | 0.5 | 0.2–5 | How often the rule is checked (keeps the 2 s result criterion) |
 | `minPlayersPerTeam` | 1 | 1–10 | Arms the rule |
 | `timeLimitMinutes` | none | — | Not in MVP (owner, 2026-10-26) |
 
@@ -163,3 +163,18 @@ final push.
 1. Should scouts count as "tanks" for elimination once they spawn? (Assumed yes.)
 2. The self-destruct friendly-fire call (open since 2026-10-20) affects edge case 3.
 3. Does the reset rebuild the starting turrets as well as the pads? (Assumed: the whole starting base.)
+
+## Implementation Notes (2026-10-26, `feature/win-condition`)
+
+- `Assets/MatchManager.cs`, added at runtime by `GameManager.Start` (the scenes are binary). The reset
+  reloads the arena scene on every client, so the whole starting base comes back (open question 3).
+- Covered by the offline gameplay test (gate step 6e): acceptance criteria 2–8. Criteria 1 and 9 are
+  also checked online by gate 6c `match` (two clients; added with the C1 fix, #36).
+- Differences from this document, kept small on purpose:
+  - after a reset, tanks start at their team's spawn point (`GameManager.spawnPoints*`), next to
+    the base, rather than on the pad itself;
+  - the HUD is a plain `OnGUI` overlay; the sound for the last enemy pad is not in yet (no asset).
+- Known limits: a player who joins after a reset is still sent the room's cached destroy events
+  for scene objects destroyed earlier (PUN caches them), and remote units' health reads 0 for a late
+  joiner until it next changes. If such a player becomes master while a team has no pads, they
+  could misjudge that team's living tanks. Both come with the online work.

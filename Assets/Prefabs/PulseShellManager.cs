@@ -24,8 +24,14 @@ namespace Com.Wulfram3 {
 
         }
 
+        // A shell hits once. Unity can call OnCollisionEnter again (one call per collider of a tank)
+        // before PhotonNetwork.Destroy takes effect at the end of the frame; each call did the direct
+        // damage and spawned an explosion again, so one flak shell could do 140 (gate dc-gate).
+        private bool hit;
+
         void OnCollisionEnter(Collision col) {
-            if (photonView.owner.IsLocal) {
+            if (photonView.owner.IsLocal && !hit) {
+                hit = true;
                 HitPointsManager hitpoints = col.gameObject.GetComponent<HitPointsManager>();
                 if (hitpoints != null) {
                     // Through the master client, like the AutoCannon: only the shooter's client handles

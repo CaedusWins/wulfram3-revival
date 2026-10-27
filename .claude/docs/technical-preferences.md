@@ -46,7 +46,7 @@
 
 ## Testing
 
-- **Framework**: Project gate `Tools/verify-local.sh` (Unity batch compile/build, scene/cargo/audit checks, `OfflineSmokeTest` and `GameplaySmokeTest` in the built player, online M2 pair, editor Play-mode check) + CI `.github/workflows/checks.yml` (C# 4 guard, script identity, .meta integrity, secret scan, Photon RPC check). No Unity Test Runner tests exist.
+- **Framework**: Project gate `Tools/verify-local.sh` (Unity batch compile/build, scene/cargo/audit checks, `OfflineSmokeTest` and `GameplaySmokeTest` in the built player, online M2 pair, editor Play-mode check) + CI `.github/workflows/checks.yml` (C# 4 guard, script identity, .meta integrity, secret scan, Photon RPC check). No Unity Test Runner tests exist. The gate and these in-player tests are the project's test root, in place of the template's `Assets/Tests/EditMode|PlayMode` folders and `tests.yml` (architecture review 2, Q5).
 - **Minimum Coverage**: every merge passes the full gate on a fresh clone; L1 checklist rows proven per `docs/L1-LOCAL-PLAYABILITY.md`
 - **Required Tests**: Balance formulas, gameplay systems, networking (if applicable)
 
@@ -71,7 +71,11 @@
 ## Architecture Decisions Log
 
 <!-- Quick reference linking to full ADRs in docs/architecture/ -->
-- [No ADRs yet — use /architecture-decision to create one. Decisions made before adoption are in CLAUDE.md "Decisions Already Made".]
+- [ADR-0001](../../docs/architecture/adr-0001-engine-pin-unity-2017-3.md) — Unity 2017.3 / C# 4 engine pin (Accepted)
+- [ADR-0002](../../docs/architecture/adr-0002-pun-classic-photon-cloud.md) — PUN Classic 1.88 on Photon Cloud, App ID out of git (Accepted)
+- [ADR-0003](../../docs/architecture/adr-0003-master-authority-and-team-identity.md) — master-decided outcomes, `Unit.SameTeam`, room-owned deployables (Accepted; amended for C1)
+- [ADR-0004](../../docs/architecture/adr-0004-match-flow-matchmanager.md) — match flow, MatchManager (Accepted)
+- [ADR-0005](../../docs/architecture/adr-0005-verification-gate-and-branch-model.md) — verification gate, branch model, local first (Accepted)
 
 ## Engine Specialists
 

@@ -37,33 +37,235 @@
 #   its fields sit two columns past the dash. Quote a value that holds ": ". A
 #   line in any other shape is reported as unsupported layout, with its number.
 
-version: 1
-last_updated: ""
+version: 2
+last_updated: "2026-10-26"
 
-requirements: []
+requirements:
 
-# --- EXAMPLE ENTRIES (remove when first real entries are added) ---
-#
-# - id: TR-combat-001
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Player takes damage from enemies based on attack power minus defence"
-#   created: 2026-03-10
-#   revised: ""
-#   status: active
-#
-# - id: TR-combat-002
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Combo window timing is 0.4 seconds between hits"
-#   created: 2026-03-10
-#   revised: "2026-04-01"
-#   status: active
-#
-# - id: TR-combat-003
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Old damage formula using raw stats"
-#   created: 2026-03-10
-#   revised: ""
-#   status: "superseded-by: TR-combat-001"
+# --- game-concept.md (system slug: game-concept) ---
+
+- id: TR-game-concept-001
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "The game ships as a Windows 64-bit standalone PC build."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-002
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "Online multiplayer for two teams over Photon Cloud, within the free tier's 20 concurrent players."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-003
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "Offline practice play with no server, through the same gameplay code paths as online play."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-004
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "The Photon App ID is kept out of git."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-005
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "The game stays on Unity 2017.3 (C# 4) until a deliberate engine step."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-006
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "The MVP is stable enough for a closed online playtest with returning players."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-007
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "Shared gameplay state has one authority; a client cannot change shared state on its own (RPC trust model)."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-008
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "Players can join a room, including at the same instant and mid-match, and see consistent state."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-009
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "Splash damage reaches every unit in range online, not only the master's own tank."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-010
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "Team colour is the dominant, readable marking on every unit at 100 m (Readable Battlefield), on the built-in render pipeline."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-game-concept-011
+  system: game-concept
+  gdd: design/gdd/game-concept.md
+  requirement: "A full match (up to about 10v10, 30-60 min) runs within a defined frame and network budget on the target PC."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+# --- win-condition.md (system slug: win-condition) ---
+
+- id: TR-win-condition-001
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "Every repair pad has a team; a pad deployed from cargo takes the deploying tank's team."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-002
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "A player respawns only at own-team pads (Unit.SameTeam); enemy and team-less pads are never offered."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-003
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "With no own-team pad a dead player spectates and respawns within 2 s of the team regaining a pad; the arena-centre fallback is removed."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-004
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "A team is eliminated when it has zero repair pads and zero tanks with health above 0 (scouts count as tanks)."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-005
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "One team eliminated means the other wins; both eliminated in the same check is a draw."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-006
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "Only the master client evaluates the rule and announces the result by RPC to all, as with damage."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-007
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "The rule arms only when both teams have at least minPlayersPerTeam players; offline play can arm it for tests."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-008
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "announceSeconds after the result the arena resets in the same room: starting base restored, deployed units and cargo cleared, everyone respawned on their team with full health and fuel."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-009
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "Match states Waiting, Playing, Ended, Resetting; damage is ignored while Ended."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-010
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "A master hand-over re-evaluates from the current scene; no match state is cached only on the old master."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-011
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "The result is shown on every client within 2 s of the elimination (checked every checkIntervalSeconds)."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-012
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "If a disconnect empties a team the match returns to Waiting; there is no forfeit win."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-013
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "A player who joins after a reset or mid-match sees correct unit health and scene state."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-014
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "The HUD shows per-team pads and living tanks, the spectator overlay, the result banner in team colour and the reset countdown."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-015
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "announceSeconds, checkIntervalSeconds and minPlayersPerTeam are tunable within their documented ranges."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-016
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "A distinct sound plays when the last enemy pad is destroyed."
+  created: 2026-10-26
+  revised: ""
+  status: active
+
+- id: TR-win-condition-017
+  system: win-condition
+  gdd: design/gdd/win-condition.md
+  requirement: "The offline gameplay test covers acceptance criteria 1-5 and 7; an online two-client test covers criterion 1."
+  created: 2026-10-26
+  revised: ""
+  status: active
