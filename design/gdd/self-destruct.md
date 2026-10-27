@@ -2,7 +2,7 @@
 
 > **Status**: Approved (owner, 2026-10-26)
 > **Author**: owner + Claude (retrofit of the 2018 `selfDestruct`; friendly-fire call by the owner, 2026-10-26)
-> **Last Updated**: 2026-10-26
+> **Last Updated**: 2026-10-27
 > **Last Verified**: 2026-10-26
 > **Implements Pillar**: Strategy over kills; Teamwork wins
 
@@ -74,6 +74,8 @@ With the defaults (1000, 10 m), a unit 4 m away takes 600 and one 9 m away takes
    Kept for now (see Open Questions).
 5. **Armed after the match ended:** the master ignores all damage until the reset.
 6. **An enemy unit the blast destroys explodes:** its death explosion (Explosions & Splash #10) splashes every unit near it, friend or foe, capped at 30 (`design/gdd/turrets.md`). That is the unit's explosion, not the self-destruct blast: a friendly pad 2-5 m from a destroyed turret loses a few points (gate 6e `self-destruct-friendly` allows exactly that splash).
+7. **Arming while dead or spectating:** not allowed (rule 1: a *living* tank). The code doesn't check it yet
+   (`selfDestruct.Trigger`; architecture review 3, F3): a story.
 
 ## Dependencies
 
@@ -112,4 +114,5 @@ None beyond the effect.
 
 ## Open Questions
 
-1. Should a tank killed while armed still explode? (Kept as is.)
+1. Should a tank killed while armed still explode? (Kept as is.) Note: such a tank may respawn before the
+   effect ends and blast at its respawn pad; the enemies-only rule keeps that pad safe, but nearby enemies are hit.

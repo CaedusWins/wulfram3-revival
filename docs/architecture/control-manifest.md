@@ -1,8 +1,8 @@
 # Control Manifest
 
 > **Engine**: Unity 2017.3.0f3 (C# 4, Mono), PUN Classic 1.88
-> **Last Updated**: 2026-10-26
-> **Manifest Version**: 2026-10-26
+> **Last Updated**: 2026-10-27
+> **Manifest Version**: 2026-10-27
 > **ADRs Covered**: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005
 > **Status**: Active — regenerate with `/create-control-manifest update` when ADRs change
 
@@ -61,7 +61,7 @@ read its ADR.
 - **Only the master destroys shared units at 0 health and spawns shells and explosions (`GameManager.UnitsHealthUpdated`)** — source: ADR-0003
 - **Only the master decides shared outcomes** — source: ADR-0003
 - **Compare teams only with `Unit.SameTeam(a, b)`, or compare values that came out of `Unit.NormalizeTeam`; a unit with team `""` belongs to no one** — source: ADR-0003
-- **A deploy is a request to the master: `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID; the master refuses a tank that isn't the sender's, an empty hold, a missing prefab or a match that has ended, deploys the cargo actually on board with the tank's team, and empties the hold** — source: ADR-0003
+- **A deploy is a request to the master: `GameManager.DeployUnit(cargoManager, position, rotation)` sends only the tank's view ID; the master refuses a tank that isn't the sender's, an empty hold, a missing prefab or a match that has ended, deploys the cargo actually on board with the tank's team (every deployed unit, whatever the box's colour; amended 2026-10-27), and empties the hold** — source: ADR-0003
 - **The placement preview is a local, look-only picture with no network identity** — source: ADR-0003
 
 ### Forbidden Approaches
