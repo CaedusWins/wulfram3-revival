@@ -25,7 +25,7 @@ step 4a).
 |---|-------------|----------|----------|--------|------------|------------|
 | 1 | Hover Movement (`PlayerMovementManager`) | Core | MVP | Implemented (feel: manual playtest, L1 row 3) | [hover-movement.md](hover-movement.md) | Physics, Input |
 | 2 | Camera & Cursor (`CameraManager`, `CursorVisibilityManager`) | Core | MVP | Implemented (manual, row 4) | [camera-cursor.md](camera-cursor.md) | Hover Movement |
-| 3 | Networking & Match Join (PUN Classic, `LauncherWithLogin`, `GameManager`) | Core | MVP | Implemented (M2 online test; same-instant join race fix parked) | — | — |
+| 3 | Networking & Match Join (PUN Classic, `LauncherWithLogin`, `GameManager`) | Core | MVP | Implemented (M2 online test; the same-instant join race fixed 2026-10-27: one named room via `JoinOrCreateRoom`, gate 6d) | — | — |
 | 4 | Offline Play (`OfflinePlay`) | Core | MVP | Implemented (L1 rows 1/2/16) | — | Networking |
 | 5 | Teams (`Unit`, `Unit.SameTeam`, PunTeams) | Core | MVP | Implemented (row 14 team audit) | — | Networking |
 | 6 | Health & Regeneration (`HitPointsManager`, `HealthRegenerator`) | Gameplay | MVP | Implemented (row 8; damage only via master) | — | Networking |

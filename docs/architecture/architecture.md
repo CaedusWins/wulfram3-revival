@@ -106,7 +106,7 @@ implemented systems have no GDD yet, so they have no requirements to trace.
 ## Required ADRs
 
 **Must have before more Foundation/Core code:**
-1. **Join and late-join state sync** — the same-instant join race (fix parked on `feature/join-same-room`), late joiners reading remote health as 0, cached destroy events for scene objects (TR-game-concept-008, TR-win-condition-013), and cargo content and hold state for late joiners (`SetContent`, `SetPickedUpCargo` are unbuffered). Deferred by ADR-0005's local-first rule until L1 is done.
+1. **Join and late-join state sync** — the same-instant join race (fixed 2026-10-27: one named room via `JoinOrCreateRoom`, gate 6d), late joiners reading remote health as 0, cached destroy events for scene objects (TR-game-concept-008, TR-win-condition-013), and cargo content and hold state for late joiners (`SetContent`, `SetPickedUpCargo` are unbuffered). Deferred by ADR-0005's local-first rule until L1 is done.
 2. **RPC trust model** — which client requests the master validates (`SetHealthFromClient`, damage, pickups), and how (TR-game-concept-007): pick-up/drop sender checks, damage-amount checks, deploy position limits. M3.
 3. **Performance and network budgets** — frame budget, Photon message rate for about 10v10, the 999 scene view IDs, frame-rate independence (TR-game-concept-011, TR-hover-movement-004, review N7).
 

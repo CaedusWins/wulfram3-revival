@@ -42,7 +42,7 @@ Mark each **P** (pass), **F** (fail, say what happened) or **?** (unsure).
 | A16 | 18 | Sounds: cannon, pickup/drop, UI clicks; jump, take-off and landing; the engine hums while flying and stops when landed | | |
 | A17 | 16 | Press Esc: the **Leave Game** button shows; it returns to the launcher; Play again works | | |
 
-### Part B — online (`Play Wulfram (online).bat` twice, a few seconds apart)
+### Part B — online (`Play Wulfram (online).bat` twice; with the next build any timing works, with `7c57587` start the second only after the first is in the arena)
 
 | # | Check | P/F/? | Notes |
 |---|-------|-------|-------|
