@@ -50,12 +50,18 @@ public class selfDestruct : Photon.PunBehaviour
         HitPointsManager myHPM = transform.GetComponent<HitPointsManager>();
         if (myHPM) // Just some error checking to make sure we can die
         {
+            // The blast hits enemies only (design/gdd/self-destruct.md): it used to destroy the player's
+            // own repair pads and teammates too. A unit with no team counts as not friendly.
+            Unit me = GetComponent<Unit>();
+            string myTeam = me == null ? "" : Unit.NormalizeTeam(me.team);
             Collider[] targets = Physics.OverlapSphere(transform.position, sphereRadius); // Collect a list of all hit objects
             int i = 0;
             while (i < targets.Length) // Cycle through hit objects
             {
                 HitPointsManager hpm = targets[i].transform.GetComponent<HitPointsManager>();
-                if (hpm) // Prevent trying to damage objects that do not have hitpoints
+                Unit unit = targets[i].transform.GetComponent<Unit>();
+                bool friendly = myTeam != "" && unit != null && Unit.SameTeam(unit.team, myTeam);
+                if (hpm && !friendly) // Prevent trying to damage objects that do not have hitpoints
                 {
                     // (range - distance) / range gives a float from 0 to 1 that increases as distance to center of explosion decreases
                     float multi = (sphereRadius - Vector3.Distance(transform.position, targets[i].transform.position)) / sphereRadius;
