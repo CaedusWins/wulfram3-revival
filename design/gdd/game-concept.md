@@ -176,7 +176,7 @@ parked). See `CLAUDE.md`.
 
 ### Design Risks
 - The classic feel is remembered, not specified: playtests with veterans are the measure.
-- Balance: one flak hit currently kills a full tank (uncapped splash).
+- Balance: one flak hit used to kill a full tank; resolved 2026-10-26 (#43), splash capped at 30.
 
 ### Technical Risks
 - Old engine and networking stack; the dev PC is unstable under load (see `docs/QA-LOG.md`).
@@ -189,9 +189,9 @@ parked). See `CLAUDE.md`.
 - Pulling in the economy (M4) before the combat MVP is solid.
 
 ### Open Questions
-- Self-destruct: should it destroy your own team's repair pad?
-- Flak: should one hit kill a full tank?
-- What should the `BlueCargo` box deploy as?
+- ~~Self-destruct: should it destroy your own team's repair pad?~~ Resolved 2026-10-26 (#43): enemies only.
+- ~~Flak: should one hit kill a full tank?~~ Resolved 2026-10-26 (#43): no, splash capped at 30.
+- ~~What should the `BlueCargo` box deploy as?~~ Resolved 2026-10-26 (#43): a `BlueGunTurret`.
 - Match length and team size for the first playtests.
 
 ---

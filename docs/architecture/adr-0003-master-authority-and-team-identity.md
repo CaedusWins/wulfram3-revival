@@ -72,6 +72,10 @@ the gameplay test, 2026-10-20).
   refuses a tank that isn't the sender's, an empty hold, a missing prefab, or a match that has ended;
   it deploys the cargo actually on board with the tank's team and empties the hold. Dropped cargo is a
   room object too (N3). The placement preview is a local, look-only picture with no network identity (N2).
+  *Amended 2026-10-27 (architecture review 3, F4; owner's call):* "with the tank's team" holds for every
+  deployed unit, whatever the box's colour: a `Red*`/`Blue*` prefab deployed by the other team fights for the
+  deployer, and a turret targets the team that is not its own. The code applied the team only to prefabs
+  with no team of their own (`Unit.Awake`); bringing it in line is a story.
 - Teams are compared only with `Unit.SameTeam(a, b)`; `Unit.NormalizeTeam` ignores case, spaces and a
   trailing "team". A unit with no team (`""`) belongs to no one.
 

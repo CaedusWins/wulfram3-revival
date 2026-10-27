@@ -2,7 +2,7 @@
 
 > **Status**: Approved (owner, 2026-10-26)
 > **Author**: owner + Claude (retrofit of the 2018 `CargoManager` / `Cargo`; BlueCargo call by the owner, 2026-10-26)
-> **Last Updated**: 2026-10-26
+> **Last Updated**: 2026-10-27
 > **Last Verified**: 2026-10-26
 > **Implements Pillar**: Strategy over kills; Teamwork wins
 
@@ -38,6 +38,8 @@ it down where it matters.
 4. **One box at a time:** a full hold can't pick up.
 5. **Content = prefab name** in `Assets/Resources/`; a content with no prefab can't be deployed (the master
    refuses it).
+6. **Any tank can carry any box**, and what it deploys fights for the deploying tank's team, whatever the
+   box's colour (owner, 2026-10-27, architecture review 3 F4; today the code keeps a `Red*`/`Blue*` prefab's own team, a story).
 
 ### States and Transitions
 
@@ -93,7 +95,7 @@ Carrying should feel like a commitment: you are the target while you hold it.
 
 ## UI Requirements
 
-The HUD shows the hold's content (existing).
+The HUD should show the hold's content (not built: only the pick-up and drop sounds today; `CargoManager` has a TODO). Required ADR #4 (HUD) covers it.
 
 ## Cross-References
 

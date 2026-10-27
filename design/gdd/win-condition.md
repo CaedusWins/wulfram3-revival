@@ -2,7 +2,7 @@
 
 > **Status**: Approved (owner, 2026-10-26)
 > **Author**: owner + Claude (decisions by the owner, 2026-10-26)
-> **Last Updated**: 2026-10-26
+> **Last Updated**: 2026-10-27
 > **Last Verified**: 2026-10-26
 > **Implements Pillar**: Strategy over kills; Teamwork wins
 
@@ -77,7 +77,7 @@ new pad, if it has a living tank to do it.
 - **Repair Pads / Deploy**: pads get the deployer's team; the master tracks the pad count per team (pad created or destroyed).
 - **Death & Respawn**: respawning goes through the own-team-pad filter; spectating when no pad exists.
 - **Teams**: all comparisons go through `Unit.SameTeam`; teams come from `PunTeams` for players and from `Unit.team` for structures.
-- **Self-Destruct**: can destroy your own team's last pad (currently allowed; the friendly-fire question is open). That can eliminate your own team.
+- **Self-Destruct**: the blast hits enemies only (`self-destruct.md`), so it cannot destroy your own pads; a self-destruct can still end in a draw.
 - **Networking**: the master evaluates; a master hand-over re-evaluates from the current state (nothing is cached only on the old master).
 - **HUD**: the banner, plus a per-team count of pads and living tanks.
 
@@ -98,7 +98,7 @@ both are eliminated.
 
 1. **Last pad destroyed while teammates are mid-respawn countdown (the 5 s `destroyDelayWhenDead`):** they become spectators; they're dead, so they don't count as living.
 2. **A team deploys a new pad while it has no pads:** spectators respawn immediately at it; the team is no longer close to elimination.
-3. **The last living tank self-destructs, destroying its own last pad:** the team is eliminated, and it's a draw if the other team was also eliminated in that blast.
+3. **The last living tank self-destructs and the blast destroys the enemy's last pad and last tank:** both teams are eliminated in the same check, a draw. (Its own pad can no longer be hit: `self-destruct.md`.)
 4. **A player disconnects:** their tank is removed, so it no longer counts as living. If that empties a team, the match returns to Waiting (no winner by forfeit in the MVP).
 5. **Master hand-over mid-match:** the new master re-evaluates from the scene; the result is not lost.
 6. **A neutral (team-less) pad, e.g. legacy data:** belongs to no team, so it is never offered for respawn.
@@ -161,7 +161,7 @@ final push.
 ## Open Questions
 
 1. Should scouts count as "tanks" for elimination once they spawn? (Assumed yes.)
-2. The self-destruct friendly-fire call (open since 2026-10-20) affects edge case 3.
+2. Resolved 2026-10-26 (#43): the self-destruct blast hits enemies only (`self-destruct.md`); edge case 3 updated.
 3. Does the reset rebuild the starting turrets as well as the pads? (Assumed: the whole starting base.)
 
 ## Implementation Notes (2026-10-26, `feature/win-condition`)

@@ -2,10 +2,10 @@
 
 ## Document Status
 - Version: 1
-- Last Updated: 2026-10-26
+- Last Updated: 2026-10-27 (architecture review 3)
 - Engine: Unity 2017.3.0f3 (C# 4, Mono), PUN Classic 1.88 on Photon Cloud
 - Workflow tier: `standard` (system layer map + critical ADR list; module ownership, data flow and API boundaries are left to the ADRs)
-- GDDs Covered: game-concept.md, systems-index.md (26 systems), win-condition.md
+- GDDs Covered: game-concept.md, systems-index.md (26 systems), win-condition.md, self-destruct.md, turrets.md, cargo.md
 - ADRs Referenced: ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005 (all Accepted)
 - Retrofitted: the architecture describes the 2018 code base as it is today, plus the decisions the ADRs record
 - TD-ARCHITECTURE: 2026-10-26 — skipped — Lean mode
@@ -60,13 +60,13 @@ Numbers are the rows of `design/gdd/systems-index.md`.
 | Core | Fuel (7) | `FuelManager` | the tank's fuel pool | — |
 | Core | AutoCannon (8) | `AutoCannon` | hit-scan fire, fuel cost | ADR-0003 |
 | Core | Pulse Cannon (9) | `PlayerMovementManager.TryFirePulse`, `PulseShellManager` | shell spawn (master) | ADR-0003 |
-| Core | Explosions & Splash (10) | `ExplosionPhysicsForce` | splash damage | ADR-0003 |
+| Core | Explosions & Splash (10) | `ExplosionPhysicsForce` | splash damage | ADR-0003 (damage routing; victim selection: Required ADR #5) |
 | Core | Cargo (14) | `CargoManager`, `Cargo`, `GameManager.RequestPickUpCargo` / `RequestDropCargo` | hold contents; dropped boxes are room objects | ADR-0003 |
 | Core | Deploy (15) | `GroundPlacementController`, `GameManager.DeployUnit` / `RequestDeploy` | local preview; master-checked room-owned units | ADR-0003 |
 | Feature | Targeting (11) | `TargetController`, `TargetInfoController` | the local target | ADR-0003 (teams) |
 | Feature | Death & Respawn (12) | `GameManager.Respawn`/`Update`, `RepairPad` | own-team respawn, spectating with no pad | ADR-0004 |
 | Feature | Self-Destruct (13) | `selfDestruct` | the blast | ADR-0003 |
-| Feature | Turrets (16) | `FlakTurretManager`, `GTManager` | turret AI | ADR-0003 |
+| Feature | Turrets (16) | `FlakTurretManager`, `GTManager` | turret AI | ADR-0003 (teams, master-applied damage; master-run AI: Required ADR #6) |
 | Feature | Repair Pads (17) | `RepairPad` | pad team, respawn point | ADR-0003, ADR-0004 |
 | Feature | Win Condition (18) | `MatchManager` | match state (master-decided), reset | ADR-0004 |
 | Feature | Scouts (24) | prefabs only | — | — |
@@ -98,22 +98,27 @@ RPCs, the deploy request, the match-result and reset RPCs, and team comparison.
 | ADR-0004 match flow | Feature | Accepted | present | win-condition |
 | ADR-0005 gate, branches, local first | Foundation | Accepted | present | game-concept |
 
-Traceability: 28 requirements, 17 covered, 7 partial, 4 gaps (`docs/architecture/requirements-traceability.md`,
-architecture review #2). 18 implemented systems have no GDD yet, so they have no requirements to trace.
+Traceability: 54 requirements, 36 covered, 10 partial, 8 gaps (`docs/architecture/requirements-traceability.md`,
+architecture review 3 as applied by the owner: TR-win-condition-012 raised to covered, TR-cargo-010 added). 16 implemented systems have no
+GDD yet, so they have no requirements to trace.
 
 ## Required ADRs
 
 **Must have before more Foundation/Core code:**
-1. **Join and late-join state sync** — the same-instant join race (fix parked on `feature/join-same-room`), late joiners reading remote health as 0, cached destroy events for scene objects (TR-game-concept-008, TR-win-condition-013). Deferred by ADR-0005's local-first rule until L1 is done.
-2. **RPC trust model** — which client requests the master validates (`SetHealthFromClient`, damage, pickups), and how (TR-game-concept-007). M3.
+1. **Join and late-join state sync** — the same-instant join race (fix parked on `feature/join-same-room`), late joiners reading remote health as 0, cached destroy events for scene objects (TR-game-concept-008, TR-win-condition-013), and cargo content and hold state for late joiners (`SetContent`, `SetPickedUpCargo` are unbuffered). Deferred by ADR-0005's local-first rule until L1 is done.
+2. **RPC trust model** — which client requests the master validates (`SetHealthFromClient`, damage, pickups), and how (TR-game-concept-007): pick-up/drop sender checks, damage-amount checks, deploy position limits. M3.
 3. **Performance and network budgets** — frame budget, Photon message rate for about 10v10, the 999 scene view IDs (TR-game-concept-011, review N7).
 
+**Must have before the M3 online playtest** (raised by the owner after architecture review 3):
+5. **Splash damage online** — who selects splash victims and how damage is routed (TR-game-concept-009, TR-turrets-005, TR-self-destruct-005). `ExplosionPhysicsForce` only collects bodies the client controls and only the master applies damage, so no client ever splashes a non-master player's tank; it also calls `TakeDamage` directly (review 3 F1, F5). Explosions & Splash is Core, MVP, and three approved GDDs depend on it.
+
 **Should have before the relevant system is built:**
-4. **HUD and UI architecture** — UGUI vs `OnGUI`, the match banner, team colour presentation (TR-win-condition-014, TR-game-concept-010), before Team & Vehicle Selection (19) and the HUD are reworked.
-5. **Splash damage online** — who applies explosion damage (the suspected online bug, TR-game-concept-009), before Explosions & Splash (10) is retrofitted.
+4. **HUD and UI architecture** — UGUI vs `OnGUI`, the match banner, team colour presentation, the hold's content (TR-win-condition-014, TR-game-concept-010, TR-cargo-007), before Team & Vehicle Selection (19) and the HUD are reworked.
+6. **Master-run AI and room-object behaviour sync** (TR-turrets-002) — AI runs on the master; what non-masters see; hand-over. Planned as an ADR-0003 amendment.
+7. **Balance values and tuning path** (TR-self-destruct-006, TR-turrets-008, TR-cargo-008, TR-win-condition-015) — where balance values live and how they are tuned; a short ADR before the balance pass after the playtest.
 
 **Can defer to implementation:**
-6. Audio cues (TR-win-condition-016), Chat (needs its own Photon Chat app), Economy (M4).
+8. Audio cues (TR-win-condition-016), Chat (needs its own Photon Chat app), Economy (M4).
 
 ## Architecture Principles
 

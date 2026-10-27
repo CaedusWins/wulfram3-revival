@@ -2,7 +2,7 @@
 
 > **Status**: Approved (owner, 2026-10-26)
 > **Created**: 2026-10-26
-> **Last Updated**: 2026-10-26
+> **Last Updated**: 2026-10-27
 > **Source Concept**: design/gdd/game-concept.md
 
 ---
@@ -87,13 +87,17 @@ step 4a).
 1. Hover Movement — depends on: Physics, Input
 2. Offline Play, Teams, Health & Regeneration — depend on: Networking
 3. Camera & Cursor — depends on: Hover Movement
+4. AutoCannon, Pulse Cannon, Explosions & Splash — depend on: Fuel, Health, Teams
+5. Cargo → Deploy — depend on: Networking, Teams
 
 ### Feature Layer (depends on core)
-1. AutoCannon, Pulse Cannon, Explosions — depend on: Fuel, Health, Teams
-2. Targeting — depends on: Teams
-3. Cargo → Deploy → Turrets, Repair Pads — depend on: Networking, Teams, Health
-4. Death & Respawn, Self-Destruct — depend on: Health, Repair Pads
-5. **Win Condition** — depends on: Teams, Repair Pads, Death & Respawn
+1. Targeting — depends on: Teams
+2. Turrets, Repair Pads — depend on: Deploy, Teams, Health
+3. Death & Respawn, Self-Destruct — depend on: Health, Repair Pads
+4. **Win Condition** — depends on: Teams, Repair Pads, Death & Respawn
+
+(Layers match `docs/architecture/architecture.md`; weapons, explosions, cargo and deploy moved to Core,
+architecture review 3.)
 
 ### Presentation Layer (depends on features)
 1. HUD, Launcher, Team & Vehicle Selection, Minimap — depend on the systems they show
