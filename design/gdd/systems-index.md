@@ -37,14 +37,14 @@ step 4a).
 | 12 | Death & Respawn (`GameManager.Respawn`, `RepairPad`) | Gameplay | MVP | Implemented (row 10); own-team pads only, no-pad wait | [win-condition.md](win-condition.md) | Health, Repair Pads |
 | 13 | Self-Destruct (`selfDestruct`) | Gameplay | MVP | Implemented (row 11); blast hits enemies only (#43) | [self-destruct.md](self-destruct.md) | Health, Death & Respawn |
 | 14 | Cargo (`CargoManager`, `Cargo`) | Gameplay | MVP | Implemented (row 12); all 17 boxes deployable: BlueCargo → BlueGunTurret, Repair Pad fixed (#43) | [cargo.md](cargo.md) | Networking |
-| 15 | Deploy / Base Building (`GroundPlacementController`) | Gameplay | MVP | Implemented (row 13); preview spins (fix pending) | [deploy.md](deploy.md) | Cargo, Teams |
+| 15 | Deploy / Base Building (`GroundPlacementController`) | Gameplay | MVP | Implemented (row 13); preview rotation and dead/cursor rules fixed 2026-10-27 | [deploy.md](deploy.md) | Cargo, Teams |
 | 16 | Turrets (`FlakTurretManager`, `GTManager`) | Gameplay | MVP | Implemented (row 14); splash cap 30, shells hit once (#43); SAM turret has no AI | [turrets.md](turrets.md) | Teams, Health |
 | 17 | Repair Pads (respawn points) | Gameplay | MVP | Implemented (row 10) | — | Deploy, Teams |
 | 18 | Win Condition (`MatchManager`) | Gameplay | MVP | Implemented (gate 6e `win` offline; gate 6c `match` online, two clients; ADR-0004 Accepted) | [win-condition.md](win-condition.md) | Teams, Repair Pads, Death & Respawn |
 | 19 | Team & Vehicle Selection (inferred) | UI | Vertical Slice | Not Started (spawning assigns teams automatically today) | — | Teams, Networking |
-| 20 | HUD (`GUIManager`, `StatusBarController`, `TeamCounter`, `PingCounter`) | UI | MVP | Implemented (manual, row 17); Leave button never shows (fix pending) | [hud.md](hud.md) | Health, Fuel |
+| 20 | HUD (`GUIManager`, `StatusBarController`, `TeamCounter`, `PingCounter`) | UI | MVP | Implemented (manual, row 17); Leave button fixed 2026-10-27 | [hud.md](hud.md) | Health, Fuel |
 | 21 | Launcher / Login (`LauncherWithLogin`) | UI | MVP | Implemented (guest login; 2018 account backend dead) | — | Networking |
-| 22 | Audio (cannon, pickup/drop, UI clicks) | Audio | MVP | Implemented (manual, row 18); engine sound doesn't loop | [audio.md](audio.md) | — |
+| 22 | Audio (cannon, pickup/drop, UI clicks) | Audio | MVP | Implemented (manual, row 18); own engine loops (fixed 2026-10-27) | [audio.md](audio.md) | — |
 | 23 | Chat (Photon Chat UI) | Meta | Alpha | Off (needs its own Photon Chat app) | — | Networking |
 | 24 | Scouts (`BlueScout`/`RedScout` prefabs, repair beam) | Gameplay | Alpha | Prefabs exist; nothing spawns them | — | Team & Vehicle Selection |
 | 25 | Minimap / Big Map (inferred) | UI | Alpha | Not Started | — | Teams |

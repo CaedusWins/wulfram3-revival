@@ -100,6 +100,17 @@ namespace Com.Wulfram3
         #region Public Methods
 
 
+        // The HUD's clickable panel (the Leave Game button) is saved inactive in Playground, and the
+        // GUIManager that shows it while the cursor is visible sits on that panel, so it never ran and
+        // a player could not leave (design/gdd/hud.md). Activating the panel lets GUIManager take over.
+        private void ShowClickableUI() {
+            foreach (GUIManager gui in Resources.FindObjectsOfTypeAll<GUIManager>()) {
+                if (gui.gameObject.scene.IsValid() && !gui.gameObject.activeSelf) {
+                    gui.gameObject.SetActive(true);
+                }
+            }
+        }
+
         public void LeaveRoom()
         {
             var userControler = DepenencyInjector.Resolve<IUserController>();
@@ -155,6 +166,7 @@ namespace Com.Wulfram3
                 gameObject.AddComponent<MatchManager>();
                 photonView.RefreshRpcMonoBehaviourCache();
             }
+            ShowClickableUI();
         }
 
         [PunRPC]

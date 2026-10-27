@@ -66,8 +66,7 @@ None. Volumes are per source (engine 0.2; launcher click 3×).
 ## Edge Cases
 
 1. **Many shells at once:** each plays its own sound; no limit on voices.
-2. **Engine clip ends:** the engine source does not loop, so the engine falls silent after one play of the
-   clip (Known Issues).
+2. **Another player's engine:** heard once when the tank appears, not looped (Known Issues).
 
 ## Dependencies
 
@@ -106,11 +105,14 @@ None.
 
 ## Known Issues
 
-- **The engine sound doesn't loop** (`Loop = False` on the tank's `AudioSource`): it plays once and stops.
+- **Fixed 2026-10-27 (`feature/playtest-blockers`): the own engine sound didn't loop** (`Loop = False` on
+  the prefab); `PlayerMovementManager.Start` sets it for the owner (gate 6e `engine-loop`). Other players'
+  engines still play once at spawn: their clients don't learn when a tank lands, so a loop would never
+  stop. Syncing that is future audio work.
 - **No sound** for: self-destruct, turrets firing (the gun turret's line is commented out), the match result,
   a tank taking a hit (only the shooter hears `hit1`).
 
 ## Open Questions
 
-1. Should the engine loop while flying? (Recommended: yes.) Playtest question.
+1. ~~Should the engine loop while flying?~~ Yes, for the owner (fixed 2026-10-27).
 2. Should the player who is hit also hear it? Playtest question.
