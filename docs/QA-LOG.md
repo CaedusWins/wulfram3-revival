@@ -49,6 +49,7 @@ All on a **fresh sparse clone of the exact commit**, with `Tools/verify-local.sh
 | 2026-10-26 | `wc-gate2` | `feature/win-condition` → #33 | `7017857` (= GitHub) | `--online --stress 3` (headless) | VERIFIED (all steps) | Gameplay 3/3 (26 checks each), online M2 3/3, 0 exceptions. Merged `104704f` |
 | 2026-10-26 | `ro-gate` | `feature/room-owned-deployables` | `80f7ab1` (= GitHub) | `--online --stress 3` (headless) | **NOT VERIFIED** (online 0/3) | The new online `match` phase passed every run (C1 fixed: the non-master's pad destroyed; VICTORY/DEFEAT; reset), but the master logged ~230 `NullReferenceException`s in `RayViewer.Update` after the reset: the other player's old tank (it survives the reload) used a destroyed cached camera. Reproduced 3/3, so a code bug. Fixed in `1d24750` |
 | 2026-10-26 | `ro-gate2` | `feature/room-owned-deployables` → #36 | `1d24750` (= GitHub) | `--online --stress 3` (headless) | VERIFIED (all steps) | Online 3/3 with 0 exceptions and 0 errors on both clients; VICTORY/DEFEAT in 0.3–0.7 s. Merged `3218158`; ADR-0004 accepted on this evidence |
+| 2026-10-26 | `dh-gate` | `feature/deploy-hardening` → #38 | `1918bce` (= GitHub) | `--online --stress 3` (headless) | VERIFIED (all steps) | Architecture review 2 N1-N4: the preview is inert (0 scripts, colliders, rigidbodies), `deploy-refused` passes (empty hold creates nothing), deployed and dropped units are room-owned. Online 3/3, 0 exceptions or errors on both clients. Merged `9413ef0` |
 
 ## Negative tests (test first, then fix)
 

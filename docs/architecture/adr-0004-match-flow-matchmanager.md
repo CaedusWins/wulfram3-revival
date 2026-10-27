@@ -30,7 +30,7 @@ its own network objects and reload the arena scene.
 | **Knowledge Risk** | LOW (PUN Classic source read directly for `LoadLevel`, `DestroyAll`, scene-view caching) |
 | **References Consulted** | `PhotonNetwork.LoadLevel`, `NetworkingPeer.SetLevelInPropsIfSynced`, `NetworkingPeer.RemoveInstantiatedGO` / `ServerCleanInstantiateAndDestroy`, `PhotonView.isSceneView` / `instantiationData` |
 | **Post-Cutoff APIs Used** | None |
-| **Verification Required** | Gate 6e `win` phases (offline); an online two-client match end and reset (not yet written) |
+| **Verification Required** | Gate 6e `win` phases (offline) and gate 6c `match` (online, two clients: the result and the reset on both) |
 
 ## ADR Dependencies
 
@@ -62,9 +62,9 @@ a result banner on every client, no damage until the reset, and a fresh match in
 
 ## Decision
 - `GameManager.Start` adds `MatchManager` to its own GameObject, so its RPCs travel on the GameManager's PhotonView (it also refreshes the RPC component cache; see Risks). No scene edit.
-- States: `Waiting` → `Playing` (both teams have ≥ `minPlayersPerTeam` tanks) → `Ended` → `Resetting`. Every client computes Waiting/Playing and the counts locally for its HUD; only the master sends `MatchEnded(int result)` (to All).
+- States: `Waiting` → `Playing` (both teams have ≥ `minPlayersPerTeam` tanks) → `Ended` → `Resetting`. Every client computes Waiting/Playing and the counts locally for its HUD; only the master sends `MatchEnded(int result)` (to All). When a team's last tank leaves, `Playing` returns to `Waiting` (the counts are recomputed every check); there is no forfeit result.
 - Counts come from the scene each check (every 0.5 s): own-team `RepairPad`s that exist (the master destroys a pad at 0 health), and tanks whose `HitPointsManager.health > 0`. No result is cached only on the master, so a new master re-evaluates.
-- `announceSeconds` after `Ended`, the master sends `ResetArena` (to All). The master first network-destroys its own match objects (units deployed this match, which are room objects marked `Unit.deployed`, and anything else it created), then sends the RPC, so every client processes those destroys before it reloads (a destroy that arrives after a client's reload finds nothing, and PUN logs "Ev Destroy Failed" as an error). Each client then network-destroys every root object it owns that is not a loaded scene object, and calls `PhotonNetwork.LoadLevel` on the current scene (amended 2026-10-26, architecture review C1). `GameManager.Start` spawns a new tank, keeping the player's existing team.
+- `announceSeconds` after `Ended`, the master sends `ResetArena` (to All). The master first network-destroys its own match objects (units deployed and cargo dropped this match, which are room objects marked `Unit.deployed`, and anything else it created), then sends the RPC, so every client processes those destroys before it reloads (a destroy that arrives after a client's reload finds nothing, and PUN logs "Ev Destroy Failed" as an error). Each client then network-destroys every root object it owns that is not a loaded scene object, and calls `PhotonNetwork.LoadLevel` on the current scene (amended 2026-10-26, architecture review C1). `GameManager.Start` spawns a new tank, keeping the player's existing team.
 - `MatchManager.DamageBlocked` makes the master ignore `TakeDamage` while `Ended`/`Resetting`.
 - `MatchManager.ArmWithoutOpponents` (static) arms the rule with one team, for the offline test only.
 
@@ -124,7 +124,7 @@ GameManager GO (scene, PhotonView) ── AddComponent ──> MatchManager
 
 ## Risks
 - **Late joiners after a reset** still receive cached destroy events for scene objects destroyed earlier, and read remote health as 0. Mitigation: the online work; documented in the GDD.
-- **The online path is only covered by "no false result" so far.** Mitigation: an online two-client match-end test is the next story.
+- **Online coverage** (resolved 2026-10-26): gate 6c `match` covers the result and the reset on two clients. A master hand-over during a reset is still untested online.
 - **Messages arriving during the load.** Mitigation: `LoadLevel` pauses the message queue until the scene is loaded (PUN).
 - **Pausing also stops sending** (`PhotonHandler` skips `SendOutgoingCommands` while paused; only acks go out), so a client's destroy events leave after its own load finishes. Order is kept. If the master drops during its load, nobody receives `ResetArena`; mitigation: a client that becomes master resets on its own clock once `announceSeconds` have passed.
 - **The explicit destroy is load-bearing**: tanks are DontDestroyOnLoad, so without it the old tank survives the reload. `GameManager.Start` relies on the destroyed tank reading as null.

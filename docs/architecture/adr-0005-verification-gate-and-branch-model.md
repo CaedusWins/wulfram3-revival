@@ -39,7 +39,7 @@ features are built.
 | **Depends On** | ADR-0001 |
 | **Enables** | All implementation stories (their Definition of Done) |
 | **Blocks** | None (already in force) |
-| **Ordering Note** | Local first: online feature work (join fix, real match, chat, RPC trust) waits for L1; online gate steps stay as a regression canary. **Allowed now (2026-10-26):** online tests that prove existing behaviour, such as the online match-end test that ADR-0004 needs (architecture review C2) |
+| **Ordering Note** | Local first: online feature work (join fix, real match, chat, RPC trust) waits for L1; online gate steps stay as a regression canary. **Allowed now (2026-10-26):** online tests that prove existing behaviour, such as the online match-end test that ADR-0004 needs (architecture review C2). The reliable-join and late-join gap (TR-game-concept-008) is deferred by this rule on purpose, not overlooked (architecture review 2) |
 
 ## Context
 
