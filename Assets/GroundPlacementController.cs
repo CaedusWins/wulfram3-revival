@@ -76,15 +76,51 @@ public class GroundPlacementController : Photon.PunBehaviour
         {
             if (currentPlaceableObject != null)
             {
-                // The preview is a network object (PhotonNetwork.Instantiate): a plain Destroy left
-                // it standing on every other client.
-                PhotonNetwork.Destroy(currentPlaceableObject);
+                Destroy(currentPlaceableObject);
             }
             else
             {
-                currentPlaceableObject = PhotonNetwork.Instantiate(baseUnit, placeObject.transform.position, placeObject.transform.rotation, 0);
+                currentPlaceableObject = MakePreview(baseUnit);
             }
         }
+    }
+
+    // The placement preview is this client's own picture of the unit: its meshes in the preview
+    // material and nothing else. It used to be a networked copy of the real unit with every script
+    // switched on, so a previewed turret could fire, and the master could not remove it (it belonged
+    // to this player; architecture review 2, N2).
+    private GameObject MakePreview(string unitName)
+    {
+        GameObject prefab = Resources.Load<GameObject>(unitName);
+        if (prefab == null)
+        {
+            return null;
+        }
+        GameObject preview = new GameObject(unitName + " (preview)");
+        preview.transform.position = placeObject.transform.position;
+        preview.transform.rotation = placeObject.transform.rotation;
+        Transform root = prefab.transform;
+        foreach (MeshFilter filter in prefab.GetComponentsInChildren<MeshFilter>(true))
+        {
+            MeshRenderer source = filter.GetComponent<MeshRenderer>();
+            if (source == null || filter.sharedMesh == null)
+            {
+                continue;
+            }
+            GameObject part = new GameObject(filter.name);
+            part.transform.SetParent(preview.transform, false);
+            part.transform.localPosition = root.InverseTransformPoint(filter.transform.position);
+            part.transform.localRotation = Quaternion.Inverse(root.rotation) * filter.transform.rotation;
+            part.transform.localScale = filter.transform.lossyScale;
+            part.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
+            Material[] materials = new Material[source.sharedMaterials.Length];
+            for (int i = 0; i < materials.Length; i++)
+            {
+                materials[i] = PreviewMaterial;
+            }
+            part.AddComponent<MeshRenderer>().sharedMaterials = materials;
+        }
+        return preview;
     }
 
     public void MoveCurrentObjectToMouse()
@@ -99,13 +135,6 @@ public class GroundPlacementController : Photon.PunBehaviour
   }
 
 
-        //foreach (var renderer in currentPlaceableObject.GetComponentsInChildren<MeshRenderer>(true))
-            //renderer.sharedMaterial = PreviewMaterial;
-        ChangeMaterial(PreviewMaterial);
-
-
-        foreach (var script in currentPlaceableObject.GetComponentsInChildren<MonoBehaviour>(true))
-            script.enabled = true;
     }
 
     public void RotateFromMouseWheel()
@@ -151,14 +180,13 @@ public class GroundPlacementController : Photon.PunBehaviour
 
             Debug.Log(baseUnit);
 
-            // A network object: PhotonNetwork.Destroy, not Destroy (that left a ghost preview on other clients).
-            PhotonNetwork.Destroy(currentPlaceableObject);
-            // The master creates the unit for the room (GameManager.DeployUnit), with the deployer's team.
-            Unit deployer = GetComponentInParent<Unit>();
-            gameManager.DeployUnit(baseUnit, placeObject.transform.position, placeObject.transform.rotation, deployer == null ? "" : deployer.team);
-            // Empty the hold for everyone, as GameManager.RequestDropCargo does; calling SetPickedUpCargo
-            // directly emptied it on this client only.
-            this.GetComponentInParent<CargoManager>().photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
+            // Where the preview is, turned as the mouse wheel turned it.
+            Vector3 position = currentPlaceableObject.transform.position;
+            Quaternion rotation = currentPlaceableObject.transform.rotation;
+            Destroy(currentPlaceableObject);
+            // The master checks the request, creates the carried unit for the room with this tank's
+            // team, and empties the hold for everyone (GameManager.RequestDeploy).
+            gameManager.DeployUnit(this.GetComponentInParent<CargoManager>(), position, rotation);
     }
 }
 

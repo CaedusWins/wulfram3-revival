@@ -400,10 +400,14 @@ namespace Wulfram.SmokeTest
                     dropped = now[i];
                 }
             }
-            Check("cargo-drop", hold.pickedUpCargo == "" && dropped != null && dropped.content == content &&
+            // A room object the reset removes (GameManager.RequestDropCargo).
+            PhotonView droppedView = dropped == null ? null : dropped.GetComponent<PhotonView>();
+            Com.Wulfram3.Unit droppedUnit = dropped == null ? null : dropped.GetComponent<Com.Wulfram3.Unit>();
+            bool droppedRoomOwned = droppedView != null && droppedView.isSceneView && droppedUnit != null && droppedUnit.deployed;
+            Check("cargo-drop", hold.pickedUpCargo == "" && dropped != null && dropped.content == content && droppedRoomOwned &&
                 Vector3.Distance(dropped.transform.position, me.transform.position) < 5f,
                 "hold now '" + hold.pickedUpCargo + "', new box " + (dropped == null ? "NONE" : "'" + dropped.content + "' " +
-                Vector3.Distance(dropped.transform.position, me.transform.position).ToString("0.0") + " m from the tank"));
+                Vector3.Distance(dropped.transform.position, me.transform.position).ToString("0.0") + " m from the tank, room-owned=" + droppedRoomOwned));
 
             // Q again, then ',' and a click.
             gameManager.PickUpCargo(hold);
@@ -421,12 +425,25 @@ namespace Wulfram.SmokeTest
             placement.TogglePlacement();
             yield return StartCoroutine(Wait(0.5f));
             bool previewShown = placement.currentPlaceableObject != null;
+            // The preview is only a picture (architecture review 2, N2): no scripts, colliders, rigidbody
+            // or network identity, so a previewed turret can't act.
+            string previewParts = "";
+            bool previewInert = previewShown;
+            if (previewShown)
+            {
+                int behaviours = placement.currentPlaceableObject.GetComponentsInChildren<MonoBehaviour>(true).Length;
+                int colliders = placement.currentPlaceableObject.GetComponentsInChildren<Collider>(true).Length;
+                int bodies = placement.currentPlaceableObject.GetComponentsInChildren<Rigidbody>(true).Length;
+                int renderers = placement.currentPlaceableObject.GetComponentsInChildren<MeshRenderer>(true).Length;
+                previewInert = behaviours == 0 && colliders == 0 && bodies == 0 && renderers > 0;
+                previewParts = " (scripts " + behaviours + ", colliders " + colliders + ", rigidbodies " + bodies + ", meshes " + renderers + ")";
+            }
             Vector3 deployAt = placement.placeObject == null ? Vector3.zero : placement.placeObject.transform.position;
             placement.Release();
             yield return StartCoroutine(Wait(1f));
             int unitsAfter = CountNamed(unitName);
-            Check("deploy", previewShown && placement.currentPlaceableObject == null && unitsAfter == unitsBefore + 1 && hold.pickedUpCargo == "",
-                "carried '" + content + "': preview shown=" + previewShown + " gone after release=" + (placement.currentPlaceableObject == null) +
+            Check("deploy", previewShown && previewInert && placement.currentPlaceableObject == null && unitsAfter == unitsBefore + 1 && hold.pickedUpCargo == "",
+                "carried '" + content + "': preview shown=" + previewShown + " inert=" + previewInert + previewParts + " gone after release=" + (placement.currentPlaceableObject == null) +
                 ", '" + unitName + "' count " + unitsBefore + " -> " + unitsAfter + " (deployed at " + deployAt + "), hold now '" + hold.pickedUpCargo + "'");
 
             // deploy-team (design/gdd/win-condition.md): a deployed unit whose prefab has no team takes
@@ -464,6 +481,15 @@ namespace Wulfram.SmokeTest
                 PhotonNetwork.Destroy(deployedPad.gameObject);
                 yield return StartCoroutine(Wait(0.5f));
             }
+
+            // deploy-refused (architecture review 2, N1): the master creates only what the tank carries.
+            // With an empty hold, a deploy request must create nothing.
+            int clonesBefore = CountNamed("RepairPad(Clone)") + CountNamed(unitName);
+            gameManager.DeployUnit(hold, me.transform.position + me.transform.forward * 6f, Quaternion.identity);
+            yield return StartCoroutine(Wait(1f));
+            int clonesAfter = CountNamed("RepairPad(Clone)") + CountNamed(unitName);
+            Check("deploy-refused", hold.pickedUpCargo == "" && clonesAfter == clonesBefore,
+                "a deploy request with an empty hold: deployed units " + clonesBefore + " -> " + clonesAfter + " (must not change)");
         }
 
         // teams (row 14): every unit prefab named Red* must be on team "red" and every Blue* on "blue";
@@ -763,9 +789,12 @@ namespace Wulfram.SmokeTest
                 {
                     spot.y = Terrain.activeTerrain.SampleHeight(spot) + Terrain.activeTerrain.transform.position.y;
                 }
-                // The deploy path a teammate's ',' + click takes (GameManager.DeployUnit).
+                // The deploy path a teammate's ',' + click takes (GameManager.DeployUnit): a pad in the
+                // hold, then the request; this tank stands in for the teammate.
+                Com.Wulfram3.CargoManager hold = me.GetComponent<Com.Wulfram3.CargoManager>();
+                hold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "RepairPad");
                 float padAt = Time.realtimeSinceStartup;
-                gameManager.DeployUnit("RepairPad", spot, Quaternion.identity, myTeam);
+                gameManager.DeployUnit(hold, spot, Quaternion.identity);
                 GameObject newPad = null;
                 while (newPad == null && Time.realtimeSinceStartup < padAt + 5f)
                 {

@@ -268,7 +268,10 @@ namespace Wulfram.SmokeTest
             {
                 spot.y = Terrain.activeTerrain.SampleHeight(spot) + Terrain.activeTerrain.transform.position.y;
             }
-            gameManager.DeployUnit("RepairPad", spot, Quaternion.identity, myTeam);
+            // As ',' + click does: a pad in the hold, then the request (the master checks the hold).
+            Com.Wulfram3.CargoManager hold = me.GetComponent<Com.Wulfram3.CargoManager>();
+            hold.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "RepairPad");
+            gameManager.DeployUnit(hold, spot, Quaternion.identity);
             until = Time.realtimeSinceStartup + 15f;
             while (DeployedPads("red") + DeployedPads("blue") < 2 && Time.realtimeSinceStartup < until)
             {

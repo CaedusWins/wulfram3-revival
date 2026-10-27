@@ -428,7 +428,9 @@ namespace Com.Wulfram3
                     return;
                 }
                 cargoManager.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
-                GameObject go = PhotonNetwork.Instantiate(cargoPrefab.name, cargoManager.transform.position, Quaternion.identity, 0);
+                // A room object, like a deployed unit (RequestDeploy): it stays when the master leaves,
+                // and the arena reset removes it (instantiation data marks it Unit.deployed).
+                GameObject go = PhotonNetwork.InstantiateSceneObject(cargoPrefab.name, cargoManager.transform.position, Quaternion.identity, 0, new object[] { "" });
                 go.GetComponent<Cargo>().photonView.RPC("SetContent", PhotonTargets.All, pickedUpCargo);
             }
         }
@@ -441,16 +443,31 @@ namespace Com.Wulfram3
         // creates them as scene objects, so the master can destroy them at 0 health (PUN refuses to
         // network-destroy another active player's object) and they stay when their builder leaves (PUN
         // removes a leaving player's own objects). The team travels as instantiation data (Unit.Awake).
-        public void DeployUnit(string unitName, Vector3 position, Quaternion rotation, string team) {
-            photonView.RPC("RequestDeploy", PhotonTargets.MasterClient, unitName, position, rotation, team == null ? "" : team);
+        public void DeployUnit(CargoManager cargoManager, Vector3 position, Quaternion rotation) {
+            photonView.RPC("RequestDeploy", PhotonTargets.MasterClient, cargoManager.photonView.viewID, position, rotation);
         }
 
+        // The request names only the tank; the master takes the unit from the cargo actually on board
+        // and the team from the tank, and refuses a tank that isn't the sender's, an empty hold or a
+        // unit with no prefab, and anything between a match's end and the reset (a request sent just
+        // before the reset finds its old tank gone). It used to create whatever a client named
+        // (architecture review 2, N1/N4).
         [PunRPC]
-        public void RequestDeploy(string unitName, Vector3 position, Quaternion rotation, string team) {
-            if (!PhotonNetwork.isMasterClient) {
+        public void RequestDeploy(int cargoManagerViewId, Vector3 position, Quaternion rotation, PhotonMessageInfo info) {
+            if (!PhotonNetwork.isMasterClient || MatchManager.DamageBlocked) {
                 return;
             }
-            PhotonNetwork.InstantiateSceneObject(unitName, position, rotation, 0, new object[] { team });
+            CargoManager cargoManager = FindCargoManager(cargoManagerViewId);
+            if (cargoManager == null || info.sender == null || cargoManager.photonView.ownerId != info.sender.ID) {
+                return;
+            }
+            string unitName = cargoManager.pickedUpCargo;
+            Unit tank = cargoManager.GetComponent<Unit>();
+            if (unitName == "" || tank == null || Resources.Load<GameObject>(unitName) == null) {
+                return;
+            }
+            cargoManager.photonView.RPC("SetPickedUpCargo", PhotonTargets.All, "");
+            PhotonNetwork.InstantiateSceneObject(unitName, position, rotation, 0, new object[] { tank.team });
         }
 
         #endregion
