@@ -4,11 +4,19 @@
 > **GDD**: design/gdd/turrets.md
 > **Architecture Module**: `FlakTurretManager`, `GTManager` (Turrets, #16)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories turrets`
+> **Stories**: 3 stories (see Stories)
 
 ## Overview
 
 Deployed flak and gun turrets defend a team's ground; one flak hit does at most 70. Open work: the gun turret's errors and its rate/range against the GDD (owner: the GDD is the design; review 3 F2), the direct `TakeDamage` in splash (F5), test gaps for AC2/AC3 (F8), master-run AI sync (Required ADR #6) and splash online (Required ADR #5).
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Flak turrets find, aim, fire; one hit does at most 70](story-001-flak-turret-as-built.md) | Logic | Complete | ADR-0003 |
+| 002 | [Gun turret — no errors, the GDD's rate and range, a gate phase](story-002-gun-turret-fix.md) | Logic | Ready | ADR-0003 |
+| 003 | [Turret test gaps — a second hit kills, splash never exceeds the cap](story-003-turret-test-gaps.md) | Integration | Ready | ADR-0005 |
 
 ## Governing ADRs
 

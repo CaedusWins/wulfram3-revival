@@ -4,11 +4,19 @@
 > **GDD**: design/gdd/self-destruct.md
 > **Architecture Module**: `selfDestruct` (Self-Destruct, #13)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories self-destruct`
+> **Stories**: 3 stories (see Stories)
 
 ## Overview
 
 V arms a blast that damages enemies only (#43) and kills the tank. Open work from architecture review 3: arming while dead (F3), the blast applied per collider instead of per unit (F6), the untested double-press (F8), and splash damage online (Required ADR #5).
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Enemies-only blast, the tank dies, respawn follows](story-001-enemies-only-blast.md) | Logic | Complete | ADR-0003, ADR-0004 |
+| 002 | [No arming while dead; V twice arms once](story-002-no-arming-while-dead.md) | Logic | Ready | ADR-0003 |
+| 003 | [The blast hits each unit once, not once per collider](story-003-blast-once-per-unit.md) | Logic | Ready | ADR-0003 |
 
 ## Governing ADRs
 

@@ -4,11 +4,19 @@
 > **GDD**: design/gdd/hover-movement.md
 > **Architecture Module**: `PlayerMovementManager` (Hover Movement, systems index #1)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories hover-movement`
+> **Stories**: 3 stories (see Stories)
 
 ## Overview
 
 The hovertank floats over the terrain, drives with WASD, aims its hull with the mouse, lands and takes off with Shift/Ctrl and jumps for fuel. The behaviour exists and is owner-run (ADR-0003); this epic covers making it frame-rate independent, tuning it after the playtest, and the gate evidence for hovering that the gameplay test doesn't assert yet.
+
+## Stories
+
+| # | Story | Type | Status | ADR |
+|---|-------|------|--------|-----|
+| 001 | [Movement feel sign-off](story-001-movement-feel-sign-off.md) | Visual/Feel | Ready | ADR-0001, ADR-0006 |
+| 002 | [Hover height changes per second, not per frame](story-002-hover-height-per-second.md) | Logic | Ready | N/A |
+| 003 | [Gate check that the tank hovers](story-003-hover-gate-check.md) | Integration | Ready | ADR-0005 |
 
 ## Governing ADRs
 

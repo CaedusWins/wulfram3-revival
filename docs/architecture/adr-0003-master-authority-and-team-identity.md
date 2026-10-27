@@ -9,7 +9,7 @@ Accepted 2026-10-26 (the owner delegated the call to Claude): decision in force 
 2026-10-26 (retrofit: master-applied damage is 2018 design; `Unit.SameTeam` added 2026-10-20)
 
 ## Last Verified
-2026-10-26
+2026-10-27
 
 ## Decision Makers
 Owner; Claude (revival engineering)
